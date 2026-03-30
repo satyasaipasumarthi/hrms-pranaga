@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 92%;
+
+    --card: 222 40% 10%;
+    --card-foreground: 210 40% 92%;
+
+    --popover: 222 40% 10%;
+    --popover-foreground: 210 40% 92%;
+
+    --primary: 18 100% 59%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 91% 60%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 222 30% 14%;
+    --muted-foreground: 215 20% 55%;
+
+    --accent: 222 30% 16%;
+    --accent-foreground: 210 40% 92%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 222 20% 18%;
+    --input: 222 20% 18%;
+    --ring: 18 100% 59%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 47% 6%;
+    --sidebar-foreground: 215 20% 55%;
+    --sidebar-primary: 18 100% 59%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 30% 12%;
+    --sidebar-accent-foreground: 210 40% 92%;
+    --sidebar-border: 222 20% 14%;
+    --sidebar-ring: 18 100% 59%;
+
+    /* Custom tokens */
+    --glow-orange: 0 0 20px hsl(18 100% 59% / 0.3);
+    --glow-blue: 0 0 20px hsl(217 91% 60% / 0.3);
+    --gradient-bg: linear-gradient(135deg, hsl(222 47% 7%) 0%, hsl(222 47% 11%) 100%);
+    --glass-bg: hsl(222 40% 10% / 0.6);
+    --glass-border: hsl(222 20% 22% / 0.5);
+
+    /* Status colors */
+    --status-pending: 45 93% 47%;
+    --status-approved: 142 71% 45%;
+    --status-rejected: 0 84% 60%;
+    --status-present: 142 71% 45%;
+    --status-absent: 0 84% 60%;
+    --status-late: 45 93% 47%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50 rounded-xl;
+    box-shadow: 0 4px 30px hsl(222 47% 7% / 0.5);
+  }
+
+  .glass-card-glow {
+    @apply glass-card transition-all duration-300;
+  }
+
+  .glass-card-glow:hover {
+    box-shadow: var(--glow-orange);
+    border-color: hsl(var(--primary) / 0.3);
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
+  }
+
+  .section-label {
+    @apply font-heading text-xs font-semibold tracking-[0.2em] uppercase text-primary;
+  }
+
+  .grid-overlay {
+    background-image: 
+      linear-gradient(hsl(222 20% 18% / 0.15) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(222 20% 18% / 0.15) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .status-pending {
+    @apply text-yellow-400 bg-yellow-400/10 border-yellow-400/30;
+  }
+  .status-approved {
+    @apply text-green-400 bg-green-400/10 border-green-400/30;
+  }
+  .status-rejected {
+    @apply text-red-400 bg-red-400/10 border-red-400/30;
+  }
+}
