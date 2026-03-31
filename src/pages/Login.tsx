@@ -51,7 +51,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full bg-muted border border-border rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
-              placeholder="employee@test.com"
+              placeholder="Email"
               required
             />
           </div>
@@ -69,29 +69,6 @@ const Login = () => {
             Initiate Session
           </GlowButton>
         </form>
-
-        <div className="space-y-2">
-          <p className="text-xs text-center text-muted-foreground font-heading tracking-wider">DEMO_CREDENTIALS</p>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { email: "employee@test.com", role: "Employee" },
-              { email: "manager@test.com", role: "Manager" },
-              { email: "hr@test.com", role: "HR" },
-              { email: "admin@test.com", role: "Admin" },
-            ].map((cred) => (
-              <button
-                key={cred.email}
-                type="button"
-                onClick={() => { setEmail(cred.email); setPassword("demo"); }}
-                className="text-xs p-2 rounded-lg bg-muted/50 border border-border/30 text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors text-left"
-              >
-                <span className="text-primary font-heading">{cred.role}</span>
-                <br />
-                <span className="text-[10px]">{cred.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
 
         <p className="text-xs text-center text-muted-foreground">
           PraNaga Solutions © 2026 • Enterprise Systems

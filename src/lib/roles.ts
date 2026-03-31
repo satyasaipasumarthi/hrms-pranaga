@@ -4,6 +4,7 @@ import {
   DollarSign,
   LayoutDashboard,
   Settings,
+  ShieldCheck,
   Trophy,
   TrendingUp,
   UserPlus,
@@ -23,6 +24,7 @@ export type AppModule =
   | "performance"
   | "employees"
   | "recruitment"
+  | "access_control"
   | "wall_of_fame"
   | "settings"
   | "kudos";
@@ -99,6 +101,7 @@ export const moduleAccessDefinitions: ModuleAccessDefinition[] = [
   { module: "employees", label: "Employees", routePath: "/employees", sortOrder: 70, isEnabled: true },
   { module: "recruitment", label: "Recruitment", routePath: "/recruitment", sortOrder: 80, isEnabled: true },
   { module: "wall_of_fame", label: "Wall of Fame", routePath: "/wall-of-fame", sortOrder: 90, isEnabled: true },
+  { module: "access_control", label: "Access Control", routePath: "/access-control", sortOrder: 95, isEnabled: true },
   { module: "settings", label: "Settings", routePath: "/settings", sortOrder: 100, isEnabled: true },
   { module: "kudos", label: "Kudos", routePath: null, sortOrder: 110, isEnabled: true },
 ];
@@ -112,6 +115,7 @@ export const navItemsByModule: Record<Exclude<AppModule, "kudos">, NavItem> = {
   performance: { label: "Performance", icon: TrendingUp, path: "/performance", module: "performance" },
   employees: { label: "Employees", icon: Users, path: "/employees", module: "employees" },
   recruitment: { label: "Recruitment", icon: UserPlus, path: "/recruitment", module: "recruitment" },
+  access_control: { label: "Access Control", icon: ShieldCheck, path: "/access-control", module: "access_control" },
   wall_of_fame: { label: "Wall of Fame", icon: Trophy, path: "/wall-of-fame", module: "wall_of_fame" },
   settings: { label: "Settings", icon: Settings, path: "/settings", module: "settings" },
 };
@@ -163,6 +167,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("performance", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("employees", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("recruitment", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
+    grant("access_control", { canView: true, canCreate: true, canUpdate: true, dataScope: "all" }),
     grant("wall_of_fame", { canView: true, dataScope: "all" }),
     grant("settings", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("kudos", { canView: true, dataScope: "all" }),
@@ -170,6 +175,8 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
 };
 
 export const appRoles: AppRole[] = ["admin", "hr", "manager", "employee"];
+export const assignableRoles = ["hr", "manager", "employee"] as const;
+export type AssignableRole = (typeof assignableRoles)[number];
 
 export const formatRoleLabel = (role: AppRole) => role.charAt(0).toUpperCase() + role.slice(1);
 

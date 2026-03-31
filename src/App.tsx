@@ -18,6 +18,7 @@ const Employees = lazy(() => import("./pages/Employees"));
 const Recruitment = lazy(() => import("./pages/Recruitment"));
 const Team = lazy(() => import("./pages/Team"));
 const WallOfFame = lazy(() => import("./pages/WallOfFame"));
+const AccessControl = lazy(() => import("./pages/AccessControl"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -68,6 +69,7 @@ const App = () => {
                 <Route path="/recruitment" element={<ProtectedRoute module="recruitment"><Recruitment /></ProtectedRoute>} />
                 <Route path="/team" element={<ProtectedRoute module="team"><Team /></ProtectedRoute>} />
                 <Route path="/wall-of-fame" element={<ProtectedRoute module="wall_of_fame"><WallOfFame /></ProtectedRoute>} />
+                <Route path="/access-control" element={<ProtectedRoute module="access_control"><AccessControl /></ProtectedRoute>} />
                 <Route path="/settings" element={<ProtectedRoute module="settings"><Settings /></ProtectedRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />

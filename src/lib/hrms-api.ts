@@ -1,6 +1,6 @@
 import type { PostgrestError } from "@supabase/supabase-js";
 import { createPermissionMap, getModulePermission, resolvePermissionRows, type ModuleAccessRowRecord, type PermissionMap, type PermissionRowRecord } from "@/lib/permissions";
-import { normalizeRole, type AppModule, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
+import { normalizeRole, type AppModule, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
 
 export interface AccessContextResult {
@@ -27,6 +27,36 @@ export interface ProfileRecord {
   role: string;
   department: string | null;
   manager_id: string | null;
+}
+
+export interface ManagerOption {
+  id: string;
+  name: string;
+  email: string;
+  department: string | null;
+}
+
+export interface AccessGrantRecord {
+  id: string;
+  name: string;
+  email: string;
+  role: AssignableRole;
+  department: string | null;
+  managerId: string | null;
+  managerName: string | null;
+  grantedById: string | null;
+  grantedByName: string | null;
+  inviteCount: number;
+  lastInvitedAt: string;
+  authUserId: string | null;
+}
+
+export interface AccessInvitePayload {
+  name: string;
+  email: string;
+  role: AssignableRole;
+  department: string;
+  managerId?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -182,6 +212,43 @@ export const getReadableErrorMessage = (error: unknown, fallbackMessage: string)
   }
 
   return fallbackMessage;
+};
+
+const getFunctionInvokeErrorMessage = async (error: unknown, fallbackMessage: string) => {
+  const baseMessage = getReadableErrorMessage(error, fallbackMessage);
+
+  if (!error || typeof error !== "object") {
+    return baseMessage;
+  }
+
+  const context = (error as { context?: unknown }).context;
+  if (!(context instanceof Response)) {
+    return baseMessage;
+  }
+
+  try {
+    const jsonBody = (await context.clone().json()) as Record<string, unknown>;
+    const message =
+      (typeof jsonBody.error === "string" && jsonBody.error.trim() && jsonBody.error) ||
+      (typeof jsonBody.message === "string" && jsonBody.message.trim() && jsonBody.message);
+
+    if (message) {
+      return message;
+    }
+  } catch {
+    // Fall back to text parsing below.
+  }
+
+  try {
+    const textBody = await context.clone().text();
+    if (textBody.trim()) {
+      return textBody.trim();
+    }
+  } catch {
+    // Ignore and return the base message.
+  }
+
+  return baseMessage;
 };
 
 const compareScope = (left: DataScope, right: DataScope) => scopeRank[left] - scopeRank[right];
@@ -1025,4 +1092,93 @@ export const fetchRoleCounts = async (user: AuthUser, permissionMap: PermissionM
   )
     .map(([role, count]) => ({ role, count }))
     .sort((left, right) => left.role.localeCompare(right.role));
+};
+
+export const fetchAssignableManagers = async (): Promise<ManagerOption[]> => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, name, email, department")
+    .eq("role", "manager")
+    .eq("is_active", true)
+    .order("name");
+
+  if (error) {
+    if (isMissingResourceError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+    email: String(row.email),
+    department: row.department ? String(row.department) : null,
+  }));
+};
+
+export const fetchAccessGrants = async (): Promise<AccessGrantRecord[]> => {
+  const { data, error } = await supabase
+    .from("access_grants")
+    .select("id, name, email, role, department, manager_id, granted_by, invite_count, last_invited_at, auth_user_id, manager:profiles!access_grants_manager_id_fkey(name), grantor:profiles!access_grants_granted_by_fkey(name)")
+    .order("last_invited_at", { ascending: false });
+
+  if (error) {
+    if (isMissingResourceError(error)) {
+      return [];
+    }
+
+    throw error;
+  }
+
+  return (data ?? []).map((row) => {
+    const managerRelation = row.manager as { name?: unknown } | { name?: unknown }[] | null;
+    const grantorRelation = row.grantor as { name?: unknown } | { name?: unknown }[] | null;
+    const managerName =
+      Array.isArray(managerRelation)
+        ? (managerRelation[0]?.name ? String(managerRelation[0].name) : null)
+        : managerRelation?.name
+          ? String(managerRelation.name)
+          : null;
+    const grantedByName =
+      Array.isArray(grantorRelation)
+        ? (grantorRelation[0]?.name ? String(grantorRelation[0].name) : null)
+        : grantorRelation?.name
+          ? String(grantorRelation.name)
+          : null;
+
+    return {
+      id: String(row.id),
+      name: String(row.name),
+      email: String(row.email),
+      role: String(row.role) as AssignableRole,
+      department: row.department ? String(row.department) : null,
+      managerId: row.manager_id ? String(row.manager_id) : null,
+      managerName,
+      grantedById: row.granted_by ? String(row.granted_by) : null,
+      grantedByName,
+      inviteCount: Number(row.invite_count ?? 0),
+      lastInvitedAt: String(row.last_invited_at ?? ""),
+      authUserId: row.auth_user_id ? String(row.auth_user_id) : null,
+    };
+  });
+};
+
+export const inviteUserWithRole = async (payload: AccessInvitePayload) => {
+  const { data, error } = await supabase.functions.invoke("admin-invite-user", {
+    body: {
+      name: payload.name.trim(),
+      email: payload.email.trim().toLowerCase(),
+      role: payload.role,
+      department: payload.department.trim() || "Operations",
+      managerId: payload.managerId ?? null,
+    },
+  });
+
+  if (error) {
+    throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to send the invitation."));
+  }
+
+  return data as { success: boolean; message: string };
 };

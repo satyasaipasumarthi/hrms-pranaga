@@ -1,0 +1,4 @@
+project_id = "pranaga-nexus"
+
+[functions.admin-invite-user]
+verify_jwt = false

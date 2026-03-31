@@ -69,6 +69,7 @@ values
   ('employees', 'Employees', '/employees', 70, true),
   ('recruitment', 'Recruitment', '/recruitment', 80, true),
   ('wall_of_fame', 'Wall of Fame', '/wall-of-fame', 90, true),
+  ('access_control', 'Access Control', '/access-control', 95, true),
   ('settings', 'Settings', '/settings', 100, true),
   ('kudos', 'Kudos', null, 110, true)
 on conflict (module) do update
@@ -116,6 +117,7 @@ values
   ('admin', 'employees', true, true, true, true, false, 'all'),
   ('admin', 'recruitment', true, true, true, true, false, 'all'),
   ('admin', 'wall_of_fame', true, false, false, false, false, 'all'),
+  ('admin', 'access_control', true, true, true, false, false, 'all'),
   ('admin', 'settings', true, true, true, true, false, 'all'),
   ('admin', 'kudos', true, false, false, false, false, 'all')
 on conflict (role, module) do update
@@ -126,6 +128,29 @@ set
   can_delete = excluded.can_delete,
   can_approve = excluded.can_approve,
   data_scope = excluded.data_scope;
+
+-- ------------------------------------------------------------
+-- Access grant audit
+-- ------------------------------------------------------------
+
+create table if not exists public.access_grants (
+  id uuid primary key default gen_random_uuid(),
+  email text not null unique,
+  name text not null,
+  role text not null check (role in ('hr', 'manager', 'employee')),
+  department text,
+  manager_id uuid references public.profiles(id) on delete set null,
+  auth_user_id uuid unique references auth.users(id) on delete set null,
+  granted_by uuid references public.profiles(id) on delete set null,
+  invite_count integer not null default 1 check (invite_count >= 1),
+  last_invited_at timestamptz not null default timezone('utc', now()),
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+create index if not exists access_grants_last_invited_at_idx on public.access_grants (last_invited_at desc);
+create index if not exists access_grants_role_idx on public.access_grants (role);
+create index if not exists access_grants_granted_by_idx on public.access_grants (granted_by);
 
 -- ------------------------------------------------------------
 -- Business tables
@@ -245,6 +270,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists recruitment_candidates_set_updated_at on public.recruitment_candidates;
 create trigger recruitment_candidates_set_updated_at
 before update on public.recruitment_candidates
+for each row execute function public.set_updated_at();
+
+drop trigger if exists access_grants_set_updated_at on public.access_grants;
+create trigger access_grants_set_updated_at
+before update on public.access_grants
 for each row execute function public.set_updated_at();
 
 create or replace function public.current_app_role()
@@ -425,13 +455,14 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, email, role, department)
+  insert into public.profiles (id, name, email, role, department, manager_id)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
     new.email,
     coalesce(new.raw_user_meta_data->>'role', 'employee'),
-    coalesce(new.raw_user_meta_data->>'department', 'Operations')
+    coalesce(new.raw_user_meta_data->>'department', 'Operations'),
+    nullif(new.raw_user_meta_data->>'manager_id', '')::uuid
   )
   on conflict (id) do nothing;
 
@@ -451,6 +482,7 @@ for each row execute function public.handle_new_user();
 alter table public.profiles enable row level security;
 alter table public.module_access enable row level security;
 alter table public.role_permissions enable row level security;
+alter table public.access_grants enable row level security;
 alter table public.attendance enable row level security;
 alter table public.leaves enable row level security;
 alter table public.payroll enable row level security;
@@ -490,6 +522,12 @@ using (
   role = public.current_app_role()
   or public.current_app_role() = 'admin'
 );
+
+drop policy if exists "Admins can read access grants" on public.access_grants;
+create policy "Admins can read access grants"
+on public.access_grants
+for select
+using (public.current_app_role() = 'admin');
 
 drop policy if exists "Attendance rows are viewable by scope" on public.attendance;
 drop policy if exists "Attendance rows can be created by owner" on public.attendance;

@@ -27,4 +27,18 @@ describe("permission resolver", () => {
     expect(canAccessPath(permissionMap, "/payroll")).toBe(true);
     expect(hasModulePermission(permissionMap, "payroll", "view")).toBe(true);
   });
+
+  it("allows admins to open the access-control route", () => {
+    const permissionMap = createPermissionMap(getFallbackPermissionsForRole("admin"));
+
+    expect(canAccessPath(permissionMap, "/access-control")).toBe(true);
+    expect(hasModulePermission(permissionMap, "access_control", "create")).toBe(true);
+  });
+
+  it("prevents employees from opening the access-control route", () => {
+    const permissionMap = createPermissionMap(getFallbackPermissionsForRole("employee"));
+
+    expect(canAccessPath(permissionMap, "/access-control")).toBe(false);
+    expect(hasModulePermission(permissionMap, "access_control", "view")).toBe(false);
+  });
 });
