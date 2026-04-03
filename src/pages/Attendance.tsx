@@ -23,6 +23,12 @@ const Attendance = () => {
 
   const canTrackOwnTime = hasModulePermission(permissions, "attendance", "create");
   const showEmployeeColumn = hasMinimumDataScope(permissions, "attendance", "team");
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todaysClosedRecord = useMemo(
+    () => attendanceLog.find((row) => row.userId === user?.id && row.date === today && Boolean(row.checkOut)),
+    [attendanceLog, today, user?.id],
+  );
+  const isTodayLocked = Boolean(todaysClosedRecord && !checkedIn);
 
   const loadAttendance = useCallback(async () => {
     if (!user) {
@@ -37,7 +43,6 @@ const Attendance = () => {
       const rows = await fetchAttendanceRecords(user, permissions);
       setAttendanceLog(rows);
 
-      const today = new Date().toISOString().split("T")[0];
       const openShift = rows.find((row) => row.userId === user.id && row.date === today && !row.checkOut);
       const stored = localStorage.getItem(`hrms_checkin_${user.id}`);
 
@@ -107,11 +112,10 @@ const Attendance = () => {
     }
 
     try {
-      const now = new Date();
-      await checkInCurrentUser(user);
+      const checkInTimestamp = await checkInCurrentUser(user);
       setCheckedIn(true);
-      setCheckInTime(now);
-      localStorage.setItem(`hrms_checkin_${user.id}`, now.toISOString());
+      setCheckInTime(new Date(checkInTimestamp));
+      localStorage.setItem(`hrms_checkin_${user.id}`, checkInTimestamp);
       await loadAttendance();
     } catch (error) {
       toast({
@@ -159,8 +163,8 @@ const Attendance = () => {
               Checked in at {checkInTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
-          <div className="flex flex-wrap gap-3 justify-center">
-            <GlowButton onClick={handleCheckIn} disabled={!canTrackOwnTime || checkedIn} variant="primary">
+            <div className="flex flex-wrap gap-3 justify-center">
+            <GlowButton onClick={handleCheckIn} disabled={!canTrackOwnTime || checkedIn || isTodayLocked} variant="primary">
               Check In
             </GlowButton>
             <GlowButton onClick={handleCheckOut} disabled={!canTrackOwnTime || !checkedIn} variant="secondary">
@@ -168,6 +172,11 @@ const Attendance = () => {
             </GlowButton>
           </div>
           {!canTrackOwnTime && <p className="text-xs text-muted-foreground text-center">Time actions are disabled for your access scope.</p>}
+          {isTodayLocked && canTrackOwnTime && (
+            <p className="text-xs text-muted-foreground text-center">
+              Today&apos;s attendance is already recorded. A new row will be available tomorrow.
+            </p>
+          )}
         </motion.div>
 
         <motion.div
@@ -194,6 +203,7 @@ const Attendance = () => {
                     <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">DATE</th>
                     <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">CHECK_IN</th>
                     <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">CHECK_OUT</th>
+                    <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">TOTAL_HOURS</th>
                     <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">STATUS</th>
                   </tr>
                 </thead>
@@ -204,6 +214,7 @@ const Attendance = () => {
                       <td className="py-3 px-4 text-foreground/80">{row.date}</td>
                       <td className="py-3 px-4 text-foreground/80">{row.checkIn ?? "-"}</td>
                       <td className="py-3 px-4 text-foreground/80">{row.checkOut ?? "-"}</td>
+                      <td className="py-3 px-4 text-foreground/80">{row.totalHours}</td>
                       <td className="py-3 px-4">
                         <span
                           className={`text-xs px-2 py-1 rounded-full border ${
@@ -221,7 +232,7 @@ const Attendance = () => {
                   ))}
                   {!attendanceLog.length && (
                     <tr>
-                      <td colSpan={showEmployeeColumn ? 5 : 4} className="py-12 text-center text-muted-foreground">
+                      <td colSpan={showEmployeeColumn ? 6 : 5} className="py-12 text-center text-muted-foreground">
                         No attendance records are visible for your current access scope.
                       </td>
                     </tr>

@@ -8,6 +8,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import SplashScreen from "@/components/SplashScreen";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
+import { hasPendingAuthAction } from "@/lib/auth-links";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Attendance = lazy(() => import("./pages/Attendance"));
@@ -33,7 +34,10 @@ const Loading = () => (
 
 const AuthRedirect = () => {
   const { isAuthenticated, homePath } = useAuth();
-  if (isAuthenticated) return <Navigate to={homePath} replace />;
+  const shouldShowAuthAction =
+    typeof window !== "undefined" && hasPendingAuthAction(window.location.hash);
+
+  if (isAuthenticated && !shouldShowAuthAction) return <Navigate to={homePath} replace />;
   return <Login />;
 };
 

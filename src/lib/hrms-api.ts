@@ -1,4 +1,5 @@
 import type { PostgrestError } from "@supabase/supabase-js";
+import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration, getUtcDateKey, getUtcDateRange } from "@/lib/attendance";
 import { createPermissionMap, getModulePermission, resolvePermissionRows, type ModuleAccessRowRecord, type PermissionMap, type PermissionRowRecord } from "@/lib/permissions";
 import { normalizeRole, type AppModule, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
@@ -67,6 +68,8 @@ export interface AttendanceRecord {
   date: string;
   checkIn: string | null;
   checkOut: string | null;
+  totalMinutes: number;
+  totalHours: string;
   status: string;
 }
 
@@ -190,6 +193,161 @@ const formatDate = (value: string | null) => {
   }
 
   return new Date(value).toISOString().split("T")[0];
+};
+
+const getTodayDateKey = () => new Date().toISOString().split("T")[0];
+
+const getDayAlreadyRecordedMessage = () =>
+  "Today's attendance has already been recorded. A new entry can be created tomorrow.";
+
+type AggregatedAttendanceRow = {
+  id: string;
+  userId: string;
+  date: string;
+  checkInIso: string | null;
+  checkOutIso: string | null;
+  totalMinutes: number;
+  status: string;
+};
+
+const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): AggregatedAttendanceRow[] => {
+  const groupedRows = new Map<string, AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }>();
+
+  rows.forEach((row) => {
+    const userId = String(row.user_id);
+    const date = String(row.date);
+    const checkInIso = row.check_in ? String(row.check_in) : null;
+    const checkOutIso = row.check_out ? String(row.check_out) : null;
+    const totalMinutes = calculateDurationMinutes(checkInIso, checkOutIso, { useCurrentTimeIfOpen: true });
+    const key = `${userId}:${date}`;
+    const existing = groupedRows.get(key);
+    const isOpenShift = Boolean(checkInIso && !checkOutIso);
+    const createdAt = row.created_at ? String(row.created_at) : null;
+
+    if (!existing) {
+      groupedRows.set(key, {
+        id: String(row.id),
+        userId,
+        date,
+        checkInIso,
+        checkOutIso,
+        totalMinutes,
+        status: calculateAttendanceStatus(totalMinutes, { isOpenShift }),
+        createdAt,
+        isOpenShift,
+      });
+      return;
+    }
+
+    const earliestCheckIn =
+      existing.checkInIso && checkInIso
+        ? new Date(existing.checkInIso).getTime() <= new Date(checkInIso).getTime()
+          ? existing.checkInIso
+          : checkInIso
+        : existing.checkInIso ?? checkInIso;
+    const latestCheckOut =
+      existing.checkOutIso && checkOutIso
+        ? new Date(existing.checkOutIso).getTime() >= new Date(checkOutIso).getTime()
+          ? existing.checkOutIso
+          : checkOutIso
+        : existing.checkOutIso ?? checkOutIso;
+    const summedMinutes = existing.totalMinutes + totalMinutes;
+    const hasOpenShift = existing.isOpenShift || isOpenShift;
+
+    groupedRows.set(key, {
+      id: existing.createdAt && createdAt && new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.id : String(row.id),
+      userId,
+      date,
+      checkInIso: earliestCheckIn,
+      checkOutIso: hasOpenShift ? null : latestCheckOut,
+      totalMinutes: summedMinutes,
+      status: calculateAttendanceStatus(summedMinutes, { isOpenShift: hasOpenShift }),
+      createdAt: existing.createdAt && createdAt
+        ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+        : existing.createdAt ?? createdAt,
+      isOpenShift: hasOpenShift,
+    });
+  });
+
+  return Array.from(groupedRows.values())
+    .map(({ createdAt: _createdAt, isOpenShift: _isOpenShift, ...attendance }) => attendance)
+    .sort((left, right) => {
+      const leftTime = left.checkInIso ? new Date(left.checkInIso).getTime() : 0;
+      const rightTime = right.checkInIso ? new Date(right.checkInIso).getTime() : 0;
+      return rightTime - leftTime;
+    });
+};
+
+const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): AggregatedAttendanceRow[] => {
+  const groupedRows = new Map<string, AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }>();
+
+  rows.forEach((row) => {
+    const userId = String(row.user_id);
+    const loginTime = row.login_time ? String(row.login_time) : null;
+    const logoutTime = row.logout_time ? String(row.logout_time) : null;
+    const date = getUtcDateKey(loginTime ?? (row.created_at ? String(row.created_at) : new Date()));
+    const explicitDuration = typeof row.duration_minutes === "number" ? Number(row.duration_minutes) : Number(row.duration_minutes ?? 0);
+    const rowDurationMinutes =
+      explicitDuration > 0
+        ? explicitDuration
+        : calculateDurationMinutes(loginTime, logoutTime, { useCurrentTimeIfOpen: true });
+    const key = `${userId}:${date}`;
+    const existing = groupedRows.get(key);
+    const isOpenShift = Boolean(loginTime && !logoutTime);
+    const createdAt = row.created_at ? String(row.created_at) : null;
+
+    if (!existing) {
+      groupedRows.set(key, {
+        id: String(row.id),
+        userId,
+        date,
+        checkInIso: loginTime,
+        checkOutIso: logoutTime,
+        totalMinutes: rowDurationMinutes,
+        status: calculateAttendanceStatus(rowDurationMinutes, { isOpenShift }),
+        createdAt,
+        isOpenShift,
+      });
+      return;
+    }
+
+    const earliestCheckIn =
+      existing.checkInIso && loginTime
+        ? new Date(existing.checkInIso).getTime() <= new Date(loginTime).getTime()
+          ? existing.checkInIso
+          : loginTime
+        : existing.checkInIso ?? loginTime;
+    const latestCheckOut =
+      existing.checkOutIso && logoutTime
+        ? new Date(existing.checkOutIso).getTime() >= new Date(logoutTime).getTime()
+          ? existing.checkOutIso
+          : logoutTime
+        : existing.checkOutIso ?? logoutTime;
+    const summedMinutes = existing.totalMinutes + rowDurationMinutes;
+    const hasOpenShift = existing.isOpenShift || isOpenShift;
+
+    groupedRows.set(key, {
+      id: existing.createdAt && createdAt && new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.id : String(row.id),
+      userId,
+      date,
+      checkInIso: earliestCheckIn,
+      checkOutIso: hasOpenShift ? null : latestCheckOut,
+      totalMinutes: summedMinutes,
+      status: calculateAttendanceStatus(summedMinutes, { isOpenShift: hasOpenShift }),
+      createdAt: existing.createdAt && createdAt
+        ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+        : existing.createdAt ?? createdAt,
+      isOpenShift: hasOpenShift,
+    });
+  });
+
+  return Array.from(groupedRows.values())
+    .map(({ createdAt: _createdAt, isOpenShift: _isOpenShift, ...attendance }) => attendance)
+    .sort((left, right) => {
+      const leftTime = left.checkInIso ? new Date(left.checkInIso).getTime() : 0;
+      const rightTime = right.checkInIso ? new Date(right.checkInIso).getTime() : 0;
+      return rightTime - leftTime;
+    });
 };
 
 export const getReadableErrorMessage = (error: unknown, fallbackMessage: string) => {
@@ -581,96 +739,86 @@ export const fetchAttendanceRecords = async (user: AuthUser, permissionMap: Perm
   }
 
   const attendanceResult = await fetchAttendanceRows(user, permission);
-  const rows = attendanceResult.rows;
+  const aggregatedRows =
+    attendanceResult.mode === "current"
+      ? aggregateCurrentAttendanceRows(attendanceResult.rows)
+      : aggregateLegacyAttendanceRows(attendanceResult.rows);
 
-  const userIds = Array.from(new Set(rows.map((row) => String(row.user_id))));
+  const userIds = Array.from(new Set(aggregatedRows.map((row) => row.userId)));
   const profiles =
     permission.dataScope === "own" ? [createUserProfileFallback(user)] : await fetchProfilesByIds(userIds);
   const profilesById = mapProfilesById(profiles);
 
-  return rows.map<AttendanceRecord>((row) => {
-    const userId = String(row.user_id);
+  return aggregatedRows.map<AttendanceRecord>((row) => {
+    const userId = row.userId;
     const profile = profilesById[userId];
-    const legacyLoginTime = row.login_time ? String(row.login_time) : null;
-    const legacyLogoutTime = row.logout_time ? String(row.logout_time) : null;
-    const currentCheckIn = row.check_in ? String(row.check_in) : null;
-    const currentCheckOut = row.check_out ? String(row.check_out) : null;
-    const effectiveCheckIn = attendanceResult.mode === "current" ? currentCheckIn : legacyLoginTime;
-    const effectiveCheckOut = attendanceResult.mode === "current" ? currentCheckOut : legacyLogoutTime;
-    const effectiveDate =
-      attendanceResult.mode === "current"
-        ? String(row.date)
-        : formatDate(legacyLoginTime ?? (row.created_at ? String(row.created_at) : null));
-    const effectiveStatus =
-      attendanceResult.mode === "current"
-        ? String(row.status ?? "Pending")
-        : String(row.attendance_status ?? "Pending");
 
     return {
-      id: String(row.id),
+      id: row.id,
       userId,
       employeeName: profile?.name ?? (userId === user.id ? user.name : "Team member"),
       department: profile?.department ?? (userId === user.id ? user.department : null),
-      date: effectiveDate,
-      checkIn: formatTime(effectiveCheckIn),
-      checkOut: formatTime(effectiveCheckOut),
-      status: effectiveStatus,
+      date: row.date,
+      checkIn: formatTime(row.checkInIso),
+      checkOut: formatTime(row.checkOutIso),
+      totalMinutes: row.totalMinutes,
+      totalHours: formatWorkedDuration(row.totalMinutes),
+      status: row.status,
     };
   });
 };
 
-export const checkInCurrentUser = async (user: AuthUser) => {
-  const today = new Date();
-  const date = today.toISOString().split("T")[0];
+export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const date = getTodayDateKey();
 
   const existingResponse = await supabase
     .from("attendance")
-    .select("id, check_out")
+    .select("id, check_in, check_out")
     .eq("user_id", user.id)
     .eq("date", date)
     .maybeSingle();
 
   if (!existingResponse.error) {
-    if (existingResponse.data?.id && !existingResponse.data.check_out) {
-      return;
+    if (existingResponse.data?.id) {
+      if (!existingResponse.data.check_out) {
+        return existingResponse.data.check_in ? String(existingResponse.data.check_in) : nowIso;
+      }
+
+      throw new Error(getDayAlreadyRecordedMessage());
     }
 
-    const { error } = await supabase.from("attendance").upsert(
+    const { error } = await supabase.from("attendance").insert(
       {
         user_id: user.id,
         date,
-        check_in: today.toISOString(),
-        status: "Full Day",
+        check_in: nowIso,
+        status: "Pending",
       },
-      { onConflict: "user_id,date" },
     );
 
     if (error) {
       throw error;
     }
 
-    return;
+    return nowIso;
   }
 
+  if (!isMissingResourceError(existingResponse.error)) {
+    throw existingResponse.error;
+  }
+
+  const { startIso, endIso } = getUtcDateRange(date);
   const legacyExistingResponse = await supabase
     .from("attendance")
     .select("id, login_time, logout_time")
     .eq("user_id", user.id)
-    .is("logout_time", null)
-    .order("login_time", { ascending: false })
+    .gte("login_time", startIso)
+    .lt("login_time", endIso)
+    .order("login_time", { ascending: true })
     .limit(1)
     .maybeSingle();
-
-  if (
-    legacyExistingResponse.error &&
-    !isNoRowsError(legacyExistingResponse.error) &&
-    !(
-      !isNoRowsError(existingResponse.error) &&
-      !isMissingResourceError(existingResponse.error)
-    )
-  ) {
-    throw legacyExistingResponse.error;
-  }
 
   if (
     legacyExistingResponse.error &&
@@ -681,37 +829,94 @@ export const checkInCurrentUser = async (user: AuthUser) => {
   }
 
   if (legacyExistingResponse.data?.id) {
-    return;
+    if (!legacyExistingResponse.data.logout_time) {
+      return legacyExistingResponse.data.login_time ? String(legacyExistingResponse.data.login_time) : nowIso;
+    }
+
+    throw new Error(getDayAlreadyRecordedMessage());
   }
 
-  const legacyInsertResponse = await supabase.from("attendance").insert({
+  const legacyInsertPayload = {
     user_id: user.id,
-    login_time: today.toISOString(),
+    login_time: nowIso,
+    work_date: date,
     duration_minutes: 0,
     shift_minutes: 540,
-    attendance_status: "Full Day",
-  });
+    attendance_status: "Pending",
+  };
+
+  const legacyInsertResponse = await supabase.from("attendance").insert(legacyInsertPayload);
 
   if (legacyInsertResponse.error) {
-    throw legacyInsertResponse.error;
+    if (!isMissingResourceError(legacyInsertResponse.error)) {
+      throw legacyInsertResponse.error;
+    }
+
+    const fallbackLegacyInsertResponse = await supabase.from("attendance").insert({
+      user_id: user.id,
+      login_time: nowIso,
+      duration_minutes: 0,
+      shift_minutes: 540,
+      attendance_status: "Pending",
+    });
+
+    if (fallbackLegacyInsertResponse.error) {
+      throw fallbackLegacyInsertResponse.error;
+    }
   }
+
+  return nowIso;
 };
 
 export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
-  const currentSchemaResponse = await supabase
+  const currentAttendanceResponse = await supabase
     .from("attendance")
-    .update({ check_out: new Date().toISOString() })
+    .select("id, check_in, check_out")
     .eq("user_id", user.id)
     .eq("date", date);
 
-  if (!currentSchemaResponse.error) {
+  if (!currentAttendanceResponse.error) {
+    const currentRow = currentAttendanceResponse.data?.[0];
+
+    if (!currentRow) {
+      throw new Error("No attendance record exists for today.");
+    }
+
+    if (currentRow.check_out) {
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const durationMinutes = calculateDurationMinutes(String(currentRow.check_in ?? ""), nowIso);
+    const status = calculateAttendanceStatus(durationMinutes);
+
+    const { error } = await supabase
+      .from("attendance")
+      .update({
+        check_out: nowIso,
+        status,
+      })
+      .eq("id", currentRow.id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      throw error;
+    }
+
     return;
   }
 
+  if (!isMissingResourceError(currentAttendanceResponse.error)) {
+    throw currentAttendanceResponse.error;
+  }
+
+  const { startIso, endIso } = getUtcDateRange(date);
   const legacyOpenShiftResponse = await supabase
     .from("attendance")
     .select("id, login_time")
     .eq("user_id", user.id)
+    .gte("login_time", startIso)
+    .lt("login_time", endIso)
     .is("logout_time", null)
     .order("login_time", { ascending: false })
     .limit(1)
@@ -722,11 +927,7 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
   }
 
   if (!legacyOpenShiftResponse.data?.id) {
-    if (isMissingResourceError(currentSchemaResponse.error)) {
-      return;
-    }
-
-    throw currentSchemaResponse.error;
+    throw new Error("No active attendance record exists for today.");
   }
 
   const now = new Date();
@@ -734,13 +935,14 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
     ? new Date(String(legacyOpenShiftResponse.data.login_time))
     : null;
   const durationMinutes = loginTime ? Math.max(Math.round((now.getTime() - loginTime.getTime()) / 60000), 0) : 0;
+  const status = calculateAttendanceStatus(durationMinutes);
 
   const legacyUpdateResponse = await supabase
     .from("attendance")
     .update({
       logout_time: now.toISOString(),
       duration_minutes: durationMinutes,
-      attendance_status: durationMinutes >= 240 ? "Full Day" : "Half Day",
+      attendance_status: status,
     })
     .eq("id", legacyOpenShiftResponse.data.id)
     .eq("user_id", user.id);
