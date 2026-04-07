@@ -24,7 +24,7 @@ const Login = () => {
   const [authActionType, setAuthActionType] = useState<AuthActionType | null>(getCurrentAuthAction);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const navigate = useNavigate();
-  const { login, isLoading, refreshAccess } = useAuth();
+  const { login, logout, isLoading } = useAuth();
 
   useEffect(() => {
     const syncAuthAction = () => setAuthActionType(getCurrentAuthAction());
@@ -42,7 +42,7 @@ const Login = () => {
       return {
         title: "Set Your Access Key",
         eyebrow: "INVITE_ACCEPTED",
-        description: "Create a password once so you can log in later with your work email and password.",
+        description: "Create a password now. After saving, you will return to the login page and sign in with your work email and password.",
         buttonLabel: "Save Password",
       };
     }
@@ -51,7 +51,7 @@ const Login = () => {
       return {
         title: "Reset Your Password",
         eyebrow: "PASSWORD_RECOVERY",
-        description: "Set a new password for your account, then continue into the HRMS securely.",
+        description: "Set a new password now. After saving, you will return to the login page and sign in again with your email and password.",
         buttonLabel: "Update Password",
       };
     }
@@ -126,18 +126,22 @@ const Login = () => {
         throw error;
       }
 
-      await refreshAccess();
+      const sessionEmail = session.user.email ?? "";
       clearAuthActionFromUrl();
+      await logout();
+      setEmail(sessionEmail);
+      setPassword("");
+      setConfirmPassword("");
 
       toast({
         title: authActionType === "invite" ? "Password saved" : "Password updated",
         description:
           authActionType === "invite"
-            ? "Your account is ready. You can now sign in later with your email and password."
-            : "Your password has been reset successfully.",
+            ? "Your account is ready. Please sign in now with your email and new password."
+            : "Your password has been reset. Please sign in again with your new password.",
       });
 
-      navigate(useAuth.getState().homePath);
+      navigate("/login", { replace: true });
     } catch (error) {
       toast({
         title: authActionType === "invite" ? "Could not set password" : "Could not reset password",
