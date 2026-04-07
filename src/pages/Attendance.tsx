@@ -4,6 +4,7 @@ import PageWrapper from "@/components/ui/PageWrapper";
 import GlowButton from "@/components/ui/GlowButton";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration } from "@/lib/attendance";
 import {
   checkInCurrentUser,
   checkOutCurrentUser,
@@ -105,6 +106,28 @@ const Attendance = () => {
   }, [checkInTime]);
 
   const activeShiftDate = useMemo(() => checkInTime?.toISOString().split("T")[0] ?? null, [checkInTime]);
+  const visibleAttendanceLog = useMemo(() => {
+    if (!user || !checkInTime || !activeShiftDate) {
+      return attendanceLog;
+    }
+
+    return attendanceLog.map((row) => {
+      if (row.userId !== user.id || row.date !== activeShiftDate || row.checkOut) {
+        return row;
+      }
+
+      const liveCheckInIso = checkInTime.toISOString();
+      const liveMinutes = calculateDurationMinutes(liveCheckInIso, null, { useCurrentTimeIfOpen: true });
+
+      return {
+        ...row,
+        checkIn: checkInTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        totalMinutes: liveMinutes,
+        totalHours: formatWorkedDuration(liveMinutes),
+        status: calculateAttendanceStatus(liveMinutes),
+      };
+    });
+  }, [activeShiftDate, attendanceLog, checkInTime, user]);
 
   const handleCheckIn = async () => {
     if (!user) {
@@ -208,7 +231,7 @@ const Attendance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {attendanceLog.map((row) => (
+                  {visibleAttendanceLog.map((row) => (
                     <tr key={row.id} className="border-b border-border/30 hover:bg-accent/30 transition-colors">
                       {showEmployeeColumn && <td className="py-3 px-4 text-foreground/80">{row.employeeName}</td>}
                       <td className="py-3 px-4 text-foreground/80">{row.date}</td>
@@ -230,7 +253,7 @@ const Attendance = () => {
                       </td>
                     </tr>
                   ))}
-                  {!attendanceLog.length && (
+                  {!visibleAttendanceLog.length && (
                     <tr>
                       <td colSpan={showEmployeeColumn ? 6 : 5} className="py-12 text-center text-muted-foreground">
                         No attendance records are visible for your current access scope.

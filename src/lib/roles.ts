@@ -67,6 +67,8 @@ export interface AuthUser {
   role: AppRole;
   department: string | null;
   managerId: string | null;
+  reportingManagerId: string | null;
+  reportingManagerName: string | null;
 }
 
 export interface Kudos {

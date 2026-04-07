@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateAttendanceStatus, formatWorkedDuration } from "@/lib/attendance";
+import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration } from "@/lib/attendance";
 
 describe("attendance thresholds", () => {
   it("marks durations below 3 hours as absent", () => {
@@ -15,11 +15,26 @@ describe("attendance thresholds", () => {
     expect(calculateAttendanceStatus(305)).toBe("Full Day");
   });
 
-  it("keeps open shifts in pending status", () => {
-    expect(calculateAttendanceStatus(320, { isOpenShift: true })).toBe("Pending");
+  it("uses the same thresholds for open shifts based on total worked hours", () => {
+    expect(calculateAttendanceStatus(120, { isOpenShift: true })).toBe("Absent");
+    expect(calculateAttendanceStatus(240, { isOpenShift: true })).toBe("Half Day");
+    expect(calculateAttendanceStatus(320, { isOpenShift: true })).toBe("Full Day");
   });
 
   it("formats total worked hours for the monthly log", () => {
     expect(formatWorkedDuration(185)).toBe("3h 05m");
+  });
+
+  it("derives total hours and status strictly from check-in and check-out timestamps", () => {
+    const absentMinutes = calculateDurationMinutes("2026-04-05T09:00:00.000Z", "2026-04-05T11:45:00.000Z");
+    const halfDayMinutes = calculateDurationMinutes("2026-04-05T09:00:00.000Z", "2026-04-05T12:10:00.000Z");
+    const fullDayMinutes = calculateDurationMinutes("2026-04-05T09:00:00.000Z", "2026-04-05T14:05:00.000Z");
+
+    expect(formatWorkedDuration(absentMinutes)).toBe("2h 45m");
+    expect(calculateAttendanceStatus(absentMinutes)).toBe("Absent");
+    expect(formatWorkedDuration(halfDayMinutes)).toBe("3h 10m");
+    expect(calculateAttendanceStatus(halfDayMinutes)).toBe("Half Day");
+    expect(formatWorkedDuration(fullDayMinutes)).toBe("5h 05m");
+    expect(calculateAttendanceStatus(fullDayMinutes)).toBe("Full Day");
   });
 });

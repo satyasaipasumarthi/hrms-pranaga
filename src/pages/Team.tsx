@@ -50,6 +50,7 @@ const Team = () => {
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">NAME</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">EMAIL</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">DEPARTMENT</th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">REPORTING_MANAGER</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">ROLE</th>
                 </tr>
               </thead>
@@ -75,6 +76,7 @@ const Team = () => {
                       </td>
                       <td className="py-3 px-4 text-foreground/70">{employee.email}</td>
                       <td className="py-3 px-4 text-foreground/70">{employee.department ?? "Unassigned"}</td>
+                      <td className="py-3 px-4 text-foreground/70">{employee.reporting_manager_name ?? "Not assigned"}</td>
                       <td className="py-3 px-4">
                         <span className="text-xs px-2 py-1 rounded-full border bg-muted/50 border-border/50 text-muted-foreground">
                           {normalizedRole ? formatRoleLabel(normalizedRole) : employee.role}
@@ -85,7 +87,7 @@ const Team = () => {
                 })}
                 {!teamMembers.length && (
                   <tr>
-                    <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
                       No team records are visible for your current access scope.
                     </td>
                   </tr>

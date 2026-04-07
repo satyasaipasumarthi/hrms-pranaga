@@ -8,6 +8,15 @@ const corsHeaders = {
 
 const allowedRoles = new Set(["employee", "manager", "hr"]);
 
+const isMissingResourceError = (error: { code?: string | null; message?: string | null } | null | undefined) => {
+  if (!error) {
+    return false;
+  }
+
+  const haystack = [error.code, error.message].filter(Boolean).join(" ").toLowerCase();
+  return haystack.includes("does not exist") || haystack.includes("could not find") || error.code === "42P01" || error.code === "42703" || error.code === "PGRST204";
+};
+
 const jsonResponse = (body: Record<string, unknown>, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -96,14 +105,14 @@ Deno.serve(async (request) => {
       name?: string;
       role?: string;
       department?: string | null;
-      managerId?: string | null;
+      reportingManagerId?: string | null;
     };
 
     const email = payload.email?.trim().toLowerCase();
     const name = payload.name?.trim();
     const role = payload.role?.trim().toLowerCase();
     const department = payload.department?.trim() || "Operations";
-    const managerId = payload.managerId?.trim() || null;
+    const reportingManagerId = payload.reportingManagerId?.trim() || null;
 
     if (!email || !name || !role) {
       return jsonResponse({ error: "Name, email, and role are required." }, 400);
@@ -114,22 +123,46 @@ Deno.serve(async (request) => {
     }
 
     let normalizedManagerId: string | null = null;
-    if (role === "employee" && managerId) {
-      const { data: managerProfile, error: managerError } = await adminClient
-        .from("profiles")
-        .select("id, role, is_active")
-        .eq("id", managerId)
+    let normalizedReportingManagerId: string | null = null;
+    let reportingManagerName: string | null = null;
+
+    if (role === "employee" && reportingManagerId) {
+      const { data: reportingManager, error: reportingManagerError } = await adminClient
+        .from("reporting_managers")
+        .select("id, name, profile_id, is_active")
+        .eq("id", reportingManagerId)
         .maybeSingle();
 
-      if (managerError) {
-        throw managerError;
+      if (reportingManagerError && !isMissingResourceError(reportingManagerError)) {
+        throw reportingManagerError;
       }
 
-      if (!managerProfile || managerProfile.role !== "manager" || managerProfile.is_active !== true) {
+      if (!reportingManagerError && (!reportingManager || reportingManager.is_active !== true)) {
         return jsonResponse({ error: "The selected reporting manager is invalid or inactive." }, 400);
       }
 
-      normalizedManagerId = managerProfile.id;
+      if (reportingManager) {
+        normalizedReportingManagerId = reportingManager.id;
+        reportingManagerName = reportingManager.name;
+        normalizedManagerId = reportingManager.profile_id ?? null;
+      } else {
+        const { data: legacyManagerProfile, error: legacyManagerError } = await adminClient
+          .from("profiles")
+          .select("id, name, role, is_active")
+          .eq("id", reportingManagerId)
+          .maybeSingle();
+
+        if (legacyManagerError) {
+          throw legacyManagerError;
+        }
+
+        if (!legacyManagerProfile || legacyManagerProfile.role !== "manager" || legacyManagerProfile.is_active !== true) {
+          return jsonResponse({ error: "The selected reporting manager is invalid or inactive." }, 400);
+        }
+
+        normalizedManagerId = legacyManagerProfile.id;
+        reportingManagerName = legacyManagerProfile.name;
+      }
     }
 
     const { data: existingProfile, error: existingProfileError } = await adminClient
@@ -159,6 +192,8 @@ Deno.serve(async (request) => {
           role,
           department,
           manager_id: normalizedManagerId,
+          reporting_manager_id: normalizedReportingManagerId,
+          reporting_manager_name: reportingManagerName,
         },
       };
 
@@ -180,6 +215,8 @@ Deno.serve(async (request) => {
           role,
           department,
           manager_id: normalizedManagerId,
+          reporting_manager_id: normalizedReportingManagerId,
+          reporting_manager_name: reportingManagerName,
         },
       });
 
@@ -194,21 +231,43 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "The user account could not be provisioned in Supabase Auth." }, 500);
     }
 
+    const profileUpsertPayload = {
+      id: authUserId,
+      name,
+      email,
+      role,
+      department,
+      manager_id: normalizedManagerId,
+      reporting_manager_id: normalizedReportingManagerId,
+      is_active: true,
+    };
+
     const { error: profileUpsertError } = await adminClient.from("profiles").upsert(
-      {
-        id: authUserId,
-        name,
-        email,
-        role,
-        department,
-        manager_id: normalizedManagerId,
-        is_active: true,
-      },
+      profileUpsertPayload,
       { onConflict: "id" },
     );
 
-    if (profileUpsertError) {
+    if (profileUpsertError && !isMissingResourceError(profileUpsertError)) {
       throw profileUpsertError;
+    }
+
+    if (profileUpsertError && isMissingResourceError(profileUpsertError)) {
+      const { error: legacyProfileUpsertError } = await adminClient.from("profiles").upsert(
+        {
+          id: authUserId,
+          name,
+          email,
+          role,
+          department,
+          manager_id: normalizedManagerId,
+          is_active: true,
+        },
+        { onConflict: "id" },
+      );
+
+      if (legacyProfileUpsertError) {
+        throw legacyProfileUpsertError;
+      }
     }
 
     const { data: existingGrant, error: existingGrantError } = await adminClient
@@ -221,23 +280,47 @@ Deno.serve(async (request) => {
       throw existingGrantError;
     }
 
+    const accessGrantPayload = {
+      email,
+      name,
+      role,
+      department,
+      manager_id: normalizedManagerId,
+      reporting_manager_id: normalizedReportingManagerId,
+      auth_user_id: authUserId,
+      granted_by: callerUser.id,
+      invite_count: (existingGrant?.invite_count ?? 0) + 1,
+      last_invited_at: new Date().toISOString(),
+    };
+
     const { error: grantUpsertError } = await adminClient.from("access_grants").upsert(
-      {
-        email,
-        name,
-        role,
-        department,
-        manager_id: normalizedManagerId,
-        auth_user_id: authUserId,
-        granted_by: callerUser.id,
-        invite_count: (existingGrant?.invite_count ?? 0) + 1,
-        last_invited_at: new Date().toISOString(),
-      },
+      accessGrantPayload,
       { onConflict: "email" },
     );
 
-    if (grantUpsertError) {
+    if (grantUpsertError && !isMissingResourceError(grantUpsertError)) {
       throw grantUpsertError;
+    }
+
+    if (grantUpsertError && isMissingResourceError(grantUpsertError)) {
+      const { error: legacyGrantUpsertError } = await adminClient.from("access_grants").upsert(
+        {
+          email,
+          name,
+          role,
+          department,
+          manager_id: normalizedManagerId,
+          auth_user_id: authUserId,
+          granted_by: callerUser.id,
+          invite_count: (existingGrant?.invite_count ?? 0) + 1,
+          last_invited_at: new Date().toISOString(),
+        },
+        { onConflict: "email" },
+      );
+
+      if (legacyGrantUpsertError) {
+        throw legacyGrantUpsertError;
+      }
     }
 
     return jsonResponse({

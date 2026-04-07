@@ -37,7 +37,7 @@ const defaultForm = {
   email: "",
   role: "employee" as AssignableRole,
   department: "Operations",
-  managerId: "",
+  reportingManagerId: "",
 };
 
 const formatInviteDate = (value: string) => {
@@ -118,7 +118,7 @@ const AccessControl = () => {
         email: form.email,
         role: form.role,
         department: form.department,
-        managerId: form.role === "employee" && form.managerId ? form.managerId : null,
+        reportingManagerId: form.role === "employee" && form.reportingManagerId ? form.reportingManagerId : null,
       });
 
       const refreshedGrants = await fetchAccessGrants();
@@ -208,7 +208,7 @@ const AccessControl = () => {
                     setForm((current) => ({
                       ...current,
                       role: event.target.value as AssignableRole,
-                      managerId: event.target.value === "employee" ? current.managerId : "",
+                      reportingManagerId: event.target.value === "employee" ? current.reportingManagerId : "",
                     }))
                   }
                   className="w-full bg-muted border border-border rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
@@ -236,19 +236,19 @@ const AccessControl = () => {
               <div className="space-y-2">
                 <label className="text-xs text-muted-foreground font-heading tracking-wider">REPORTING_MANAGER</label>
                 <select
-                  value={form.managerId}
-                  onChange={(event) => setForm((current) => ({ ...current, managerId: event.target.value }))}
+                  value={form.reportingManagerId}
+                  onChange={(event) => setForm((current) => ({ ...current, reportingManagerId: event.target.value }))}
                   className="w-full bg-muted border border-border rounded-lg px-4 py-3 text-sm text-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all"
                 >
                   <option value="">No manager assigned yet</option>
                   {managers.map((manager) => (
-                  <option key={manager.id} value={manager.id}>
-                      {manager.name} {manager.department ? `- ${manager.department}` : ""}
-                  </option>
+                    <option key={manager.id} value={manager.id}>
+                      {manager.name}
+                    </option>
                   ))}
                 </select>
                 <p className="text-xs text-muted-foreground">
-                  Assigning a manager helps team-based approvals and visibility work immediately after onboarding.
+                  Assigning a reporting manager keeps the org hierarchy visible immediately, even before that person gets portal access.
                 </p>
               </div>
             )}
@@ -298,7 +298,7 @@ const AccessControl = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
                     <p>Department: <span className="text-foreground/80">{grant.department ?? "Unassigned"}</span></p>
-                    <p>Reporting manager: <span className="text-foreground/80">{grant.managerName ?? "Not assigned"}</span></p>
+                    <p>Reporting manager: <span className="text-foreground/80">{grant.reportingManagerName ?? "Not assigned"}</span></p>
                     <p>Invite count: <span className="text-foreground/80">{grant.inviteCount}</span></p>
                     <p>Last invited: <span className="text-foreground/80">{formatInviteDate(grant.lastInvitedAt)}</span></p>
                   </div>

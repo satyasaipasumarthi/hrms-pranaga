@@ -28,12 +28,14 @@ export interface ProfileRecord {
   role: string;
   department: string | null;
   manager_id: string | null;
+  reporting_manager_id: string | null;
+  reporting_manager_name: string | null;
 }
 
 export interface ManagerOption {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   department: string | null;
 }
 
@@ -43,8 +45,8 @@ export interface AccessGrantRecord {
   email: string;
   role: AssignableRole;
   department: string | null;
-  managerId: string | null;
-  managerName: string | null;
+  reportingManagerId: string | null;
+  reportingManagerName: string | null;
   grantedById: string | null;
   grantedByName: string | null;
   inviteCount: number;
@@ -57,7 +59,7 @@ export interface AccessInvitePayload {
   email: string;
   role: AssignableRole;
   department: string;
-  managerId?: string | null;
+  reportingManagerId?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -140,7 +142,8 @@ export interface KudosRecord {
   createdAt: string;
 }
 
-const PROFILE_SELECT_WITH_MANAGER = "id, name, email, role, department, manager_id";
+const PROFILE_SELECT_WITH_MANAGER =
+  "id, name, email, role, department, manager_id, reporting_manager_id, reporting_manager:reporting_managers(name)";
 const PROFILE_SELECT_FALLBACK = "id, name, email, role, department";
 
 const scopeRank: Record<DataScope, number> = {
@@ -210,6 +213,64 @@ type AggregatedAttendanceRow = {
   status: string;
 };
 
+const getEarlierIso = (left: string | null, right: string | null) => {
+  if (left && right) {
+    return new Date(left).getTime() <= new Date(right).getTime() ? left : right;
+  }
+
+  return left ?? right;
+};
+
+const getLaterIso = (left: string | null, right: string | null) => {
+  if (left && right) {
+    return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
+  }
+
+  return left ?? right;
+};
+
+const getPreferredAttendanceId = (
+  existing: { id: string; createdAt: string | null },
+  next: { id: string; createdAt: string | null },
+) => {
+  if (!existing.createdAt || !next.createdAt) {
+    return existing.createdAt ? existing.id : next.id;
+  }
+
+  return new Date(existing.createdAt).getTime() <= new Date(next.createdAt).getTime() ? existing.id : next.id;
+};
+
+const getDifferenceBasedAttendance = ({
+  id,
+  userId,
+  date,
+  checkInIso,
+  checkOutIso,
+  createdAt,
+}: {
+  id: string;
+  userId: string;
+  date: string;
+  checkInIso: string | null;
+  checkOutIso: string | null;
+  createdAt: string | null;
+}) => {
+  const hasOpenShift = Boolean(checkInIso && !checkOutIso);
+  const totalMinutes = calculateDurationMinutes(checkInIso, checkOutIso, { useCurrentTimeIfOpen: hasOpenShift });
+
+  return {
+    id,
+    userId,
+    date,
+    checkInIso,
+    checkOutIso,
+    totalMinutes,
+    status: calculateAttendanceStatus(totalMinutes),
+    createdAt,
+    isOpenShift: hasOpenShift,
+  };
+};
+
 const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): AggregatedAttendanceRow[] => {
   const groupedRows = new Map<string, AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }>();
 
@@ -218,55 +279,41 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
     const date = String(row.date);
     const checkInIso = row.check_in ? String(row.check_in) : null;
     const checkOutIso = row.check_out ? String(row.check_out) : null;
-    const totalMinutes = calculateDurationMinutes(checkInIso, checkOutIso, { useCurrentTimeIfOpen: true });
     const key = `${userId}:${date}`;
     const existing = groupedRows.get(key);
-    const isOpenShift = Boolean(checkInIso && !checkOutIso);
     const createdAt = row.created_at ? String(row.created_at) : null;
 
     if (!existing) {
-      groupedRows.set(key, {
-        id: String(row.id),
-        userId,
-        date,
-        checkInIso,
-        checkOutIso,
-        totalMinutes,
-        status: calculateAttendanceStatus(totalMinutes, { isOpenShift }),
-        createdAt,
-        isOpenShift,
-      });
+      groupedRows.set(
+        key,
+        getDifferenceBasedAttendance({
+          id: String(row.id),
+          userId,
+          date,
+          checkInIso,
+          checkOutIso,
+          createdAt,
+        }),
+      );
       return;
     }
 
-    const earliestCheckIn =
-      existing.checkInIso && checkInIso
-        ? new Date(existing.checkInIso).getTime() <= new Date(checkInIso).getTime()
-          ? existing.checkInIso
-          : checkInIso
-        : existing.checkInIso ?? checkInIso;
-    const latestCheckOut =
-      existing.checkOutIso && checkOutIso
-        ? new Date(existing.checkOutIso).getTime() >= new Date(checkOutIso).getTime()
-          ? existing.checkOutIso
-          : checkOutIso
-        : existing.checkOutIso ?? checkOutIso;
-    const summedMinutes = existing.totalMinutes + totalMinutes;
-    const hasOpenShift = existing.isOpenShift || isOpenShift;
+    const mergedCheckIn = getEarlierIso(existing.checkInIso, checkInIso);
+    const mergedCheckOut = existing.isOpenShift || Boolean(checkInIso && !checkOutIso) ? null : getLaterIso(existing.checkOutIso, checkOutIso);
 
-    groupedRows.set(key, {
-      id: existing.createdAt && createdAt && new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.id : String(row.id),
-      userId,
-      date,
-      checkInIso: earliestCheckIn,
-      checkOutIso: hasOpenShift ? null : latestCheckOut,
-      totalMinutes: summedMinutes,
-      status: calculateAttendanceStatus(summedMinutes, { isOpenShift: hasOpenShift }),
-      createdAt: existing.createdAt && createdAt
-        ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
-        : existing.createdAt ?? createdAt,
-      isOpenShift: hasOpenShift,
-    });
+    groupedRows.set(
+      key,
+      getDifferenceBasedAttendance({
+        id: getPreferredAttendanceId(existing, { id: String(row.id), createdAt }),
+        userId,
+        date,
+        checkInIso: mergedCheckIn,
+        checkOutIso: mergedCheckOut,
+        createdAt: existing.createdAt && createdAt
+          ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+          : existing.createdAt ?? createdAt,
+      }),
+    );
   });
 
   return Array.from(groupedRows.values())
@@ -286,59 +333,41 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
     const loginTime = row.login_time ? String(row.login_time) : null;
     const logoutTime = row.logout_time ? String(row.logout_time) : null;
     const date = getUtcDateKey(loginTime ?? (row.created_at ? String(row.created_at) : new Date()));
-    const explicitDuration = typeof row.duration_minutes === "number" ? Number(row.duration_minutes) : Number(row.duration_minutes ?? 0);
-    const rowDurationMinutes =
-      explicitDuration > 0
-        ? explicitDuration
-        : calculateDurationMinutes(loginTime, logoutTime, { useCurrentTimeIfOpen: true });
     const key = `${userId}:${date}`;
     const existing = groupedRows.get(key);
-    const isOpenShift = Boolean(loginTime && !logoutTime);
     const createdAt = row.created_at ? String(row.created_at) : null;
 
     if (!existing) {
-      groupedRows.set(key, {
-        id: String(row.id),
-        userId,
-        date,
-        checkInIso: loginTime,
-        checkOutIso: logoutTime,
-        totalMinutes: rowDurationMinutes,
-        status: calculateAttendanceStatus(rowDurationMinutes, { isOpenShift }),
-        createdAt,
-        isOpenShift,
-      });
+      groupedRows.set(
+        key,
+        getDifferenceBasedAttendance({
+          id: String(row.id),
+          userId,
+          date,
+          checkInIso: loginTime,
+          checkOutIso: logoutTime,
+          createdAt,
+        }),
+      );
       return;
     }
 
-    const earliestCheckIn =
-      existing.checkInIso && loginTime
-        ? new Date(existing.checkInIso).getTime() <= new Date(loginTime).getTime()
-          ? existing.checkInIso
-          : loginTime
-        : existing.checkInIso ?? loginTime;
-    const latestCheckOut =
-      existing.checkOutIso && logoutTime
-        ? new Date(existing.checkOutIso).getTime() >= new Date(logoutTime).getTime()
-          ? existing.checkOutIso
-          : logoutTime
-        : existing.checkOutIso ?? logoutTime;
-    const summedMinutes = existing.totalMinutes + rowDurationMinutes;
-    const hasOpenShift = existing.isOpenShift || isOpenShift;
+    const mergedCheckIn = getEarlierIso(existing.checkInIso, loginTime);
+    const mergedCheckOut = existing.isOpenShift || Boolean(loginTime && !logoutTime) ? null : getLaterIso(existing.checkOutIso, logoutTime);
 
-    groupedRows.set(key, {
-      id: existing.createdAt && createdAt && new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.id : String(row.id),
-      userId,
-      date,
-      checkInIso: earliestCheckIn,
-      checkOutIso: hasOpenShift ? null : latestCheckOut,
-      totalMinutes: summedMinutes,
-      status: calculateAttendanceStatus(summedMinutes, { isOpenShift: hasOpenShift }),
-      createdAt: existing.createdAt && createdAt
-        ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
-        : existing.createdAt ?? createdAt,
-      isOpenShift: hasOpenShift,
-    });
+    groupedRows.set(
+      key,
+      getDifferenceBasedAttendance({
+        id: getPreferredAttendanceId(existing, { id: String(row.id), createdAt }),
+        userId,
+        date,
+        checkInIso: mergedCheckIn,
+        checkOutIso: mergedCheckOut,
+        createdAt: existing.createdAt && createdAt
+          ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+          : existing.createdAt ?? createdAt,
+      }),
+    );
   });
 
   return Array.from(groupedRows.values())
@@ -422,6 +451,11 @@ const toProfileRecord = (row: Record<string, unknown>): ProfileRecord => ({
   role: String(row.role),
   department: row.department ? String(row.department) : null,
   manager_id: row.manager_id ? String(row.manager_id) : null,
+  reporting_manager_id: row.reporting_manager_id ? String(row.reporting_manager_id) : null,
+  reporting_manager_name:
+    row.reporting_manager && typeof row.reporting_manager === "object" && "name" in (row.reporting_manager as Record<string, unknown>)
+      ? ((row.reporting_manager as Record<string, unknown>).name ? String((row.reporting_manager as Record<string, unknown>).name) : null)
+      : null,
 });
 
 const createUserProfileFallback = (user: AuthUser): ProfileRecord => ({
@@ -431,6 +465,8 @@ const createUserProfileFallback = (user: AuthUser): ProfileRecord => ({
   role: user.role,
   department: user.department,
   manager_id: user.managerId,
+  reporting_manager_id: user.reportingManagerId,
+  reporting_manager_name: user.reportingManagerName,
 });
 
 const mapProfilesById = (profiles: ProfileRecord[]) =>
@@ -475,6 +511,8 @@ export const fetchCurrentUserProfile = async (userId: string): Promise<ProfileRe
   return toProfileRecord({
     ...((fallbackResponse.data ?? {}) as Record<string, unknown>),
     manager_id: null,
+    reporting_manager_id: null,
+    reporting_manager: null,
   });
 };
 
@@ -533,6 +571,8 @@ export const fetchAccessContext = async (userId: string): Promise<AccessContextR
     role,
     department: profile.department,
     managerId: profile.manager_id,
+    reportingManagerId: profile.reporting_manager_id,
+    reportingManagerName: profile.reporting_manager_name,
   };
 
   return {
@@ -588,6 +628,8 @@ const fetchProfilesByQuery = async (filter?: ProfileFilter) => {
     toProfileRecord({
       ...(row as Record<string, unknown>),
       manager_id: null,
+      reporting_manager_id: null,
+      reporting_manager: null,
     }),
   );
 };
@@ -1297,47 +1339,86 @@ export const fetchRoleCounts = async (user: AuthUser, permissionMap: PermissionM
 };
 
 export const fetchAssignableManagers = async (): Promise<ManagerOption[]> => {
-  const { data, error } = await supabase
+  const reportingManagerResponse = await supabase
+    .from("reporting_managers")
+    .select("id, name, department")
+    .eq("is_active", true)
+    .order("name");
+
+  if (!reportingManagerResponse.error && (reportingManagerResponse.data?.length ?? 0) > 0) {
+    return (reportingManagerResponse.data ?? []).map((row) => ({
+      id: String(row.id),
+      name: String(row.name),
+      email: null,
+      department: row.department ? String(row.department) : null,
+    }));
+  }
+
+  if (reportingManagerResponse.error && !isMissingResourceError(reportingManagerResponse.error)) {
+    throw reportingManagerResponse.error;
+  }
+
+  const fallbackManagerResponse = await supabase
     .from("profiles")
     .select("id, name, email, department")
     .eq("role", "manager")
     .eq("is_active", true)
     .order("name");
 
-  if (error) {
-    if (isMissingResourceError(error)) {
+  if (fallbackManagerResponse.error) {
+    if (isMissingResourceError(fallbackManagerResponse.error)) {
       return [];
     }
 
-    throw error;
+    throw fallbackManagerResponse.error;
   }
 
-  return (data ?? []).map((row) => ({
+  return (fallbackManagerResponse.data ?? []).map((row) => ({
     id: String(row.id),
     name: String(row.name),
-    email: String(row.email),
+    email: row.email ? String(row.email) : null,
     department: row.department ? String(row.department) : null,
   }));
 };
 
 export const fetchAccessGrants = async (): Promise<AccessGrantRecord[]> => {
-  const { data, error } = await supabase
+  const grantsWithReportingManagerResponse = await supabase
     .from("access_grants")
-    .select("id, name, email, role, department, manager_id, granted_by, invite_count, last_invited_at, auth_user_id, manager:profiles!access_grants_manager_id_fkey(name), grantor:profiles!access_grants_granted_by_fkey(name)")
+    .select("id, name, email, role, department, manager_id, reporting_manager_id, granted_by, invite_count, last_invited_at, auth_user_id, manager:profiles!access_grants_manager_id_fkey(name), reporting_manager:reporting_managers(name), grantor:profiles!access_grants_granted_by_fkey(name)")
     .order("last_invited_at", { ascending: false });
 
-  if (error) {
-    if (isMissingResourceError(error)) {
+  if (grantsWithReportingManagerResponse.error && !isMissingResourceError(grantsWithReportingManagerResponse.error)) {
+    throw grantsWithReportingManagerResponse.error;
+  }
+
+  const legacyGrantsResponse = grantsWithReportingManagerResponse.error
+    ? await supabase
+        .from("access_grants")
+        .select("id, name, email, role, department, manager_id, granted_by, invite_count, last_invited_at, auth_user_id, manager:profiles!access_grants_manager_id_fkey(name), grantor:profiles!access_grants_granted_by_fkey(name)")
+        .order("last_invited_at", { ascending: false })
+    : null;
+
+  if (legacyGrantsResponse?.error) {
+    if (isMissingResourceError(legacyGrantsResponse.error)) {
       return [];
     }
 
-    throw error;
+    throw legacyGrantsResponse.error;
   }
 
-  return (data ?? []).map((row) => {
+  const rows = grantsWithReportingManagerResponse.error ? (legacyGrantsResponse?.data ?? []) : (grantsWithReportingManagerResponse.data ?? []);
+
+  return rows.map((row) => {
     const managerRelation = row.manager as { name?: unknown } | { name?: unknown }[] | null;
+    const reportingManagerRelation = row.reporting_manager as { name?: unknown } | { name?: unknown }[] | null;
     const grantorRelation = row.grantor as { name?: unknown } | { name?: unknown }[] | null;
-    const managerName =
+    const reportingManagerNameFromRelation =
+      Array.isArray(reportingManagerRelation)
+        ? (reportingManagerRelation[0]?.name ? String(reportingManagerRelation[0].name) : null)
+        : reportingManagerRelation?.name
+          ? String(reportingManagerRelation.name)
+          : null;
+    const legacyManagerName =
       Array.isArray(managerRelation)
         ? (managerRelation[0]?.name ? String(managerRelation[0].name) : null)
         : managerRelation?.name
@@ -1356,8 +1437,8 @@ export const fetchAccessGrants = async (): Promise<AccessGrantRecord[]> => {
       email: String(row.email),
       role: String(row.role) as AssignableRole,
       department: row.department ? String(row.department) : null,
-      managerId: row.manager_id ? String(row.manager_id) : null,
-      managerName,
+      reportingManagerId: row.reporting_manager_id ? String(row.reporting_manager_id) : null,
+      reportingManagerName: reportingManagerNameFromRelation ?? legacyManagerName,
       grantedById: row.granted_by ? String(row.granted_by) : null,
       grantedByName,
       inviteCount: Number(row.invite_count ?? 0),
@@ -1374,7 +1455,7 @@ export const inviteUserWithRole = async (payload: AccessInvitePayload) => {
       email: payload.email.trim().toLowerCase(),
       role: payload.role,
       department: payload.department.trim() || "Operations",
-      managerId: payload.managerId ?? null,
+      reportingManagerId: payload.reportingManagerId ?? null,
     },
   });
 

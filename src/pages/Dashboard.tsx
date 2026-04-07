@@ -268,6 +268,10 @@ const Dashboard = () => {
                 className="glass-card p-6"
               >
                 <h3 className="font-heading font-semibold text-foreground mb-4 tracking-wide">WEEKLY_SUMMARY</h3>
+                <div className="mb-4 rounded-lg border border-border/40 bg-muted/20 px-4 py-3">
+                  <p className="text-[10px] font-heading tracking-[0.2em] text-muted-foreground">REPORTING_MANAGER</p>
+                  <p className="mt-1 text-sm text-foreground/85">{user?.reportingManagerName ?? "Not assigned yet"}</p>
+                </div>
                 <div className="space-y-3">
                   {weeklyAttendance.map((record) => (
                     <div key={record.id} className="flex items-center justify-between py-2 border-b border-border/50 last:border-0">

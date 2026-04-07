@@ -123,13 +123,6 @@ begin
           when bool_or(logout_time is null) then null
           else max(logout_time)
         end as merged_logout_time,
-        sum(
-          case
-            when duration_minutes is not null then greatest(duration_minutes, 0)
-            when login_time is not null and logout_time is not null then greatest(round(extract(epoch from (logout_time - login_time)) / 60), 0)
-            else 0
-          end
-        )::integer as merged_duration_minutes,
         max(shift_minutes) as merged_shift_minutes,
         bool_or(logout_time is null) as has_open_shift,
         count(*) as row_count
@@ -141,12 +134,15 @@ begin
     set
       login_time = grouped.merged_login_time,
       logout_time = grouped.merged_logout_time,
-      duration_minutes = grouped.merged_duration_minutes,
+      duration_minutes = case
+        when grouped.merged_login_time is null or grouped.merged_logout_time is null then 0
+        else greatest(round(extract(epoch from (grouped.merged_logout_time - grouped.merged_login_time)) / 60), 0)::integer
+      end,
       shift_minutes = coalesce(grouped.merged_shift_minutes, attendance_row.shift_minutes),
       attendance_status = case
         when grouped.has_open_shift then 'Pending'
-        when grouped.merged_duration_minutes < 180 then 'Absent'
-        when grouped.merged_duration_minutes < 300 then 'Half Day'
+        when greatest(round(extract(epoch from (grouped.merged_logout_time - grouped.merged_login_time)) / 60), 0) < 180 then 'Absent'
+        when greatest(round(extract(epoch from (grouped.merged_logout_time - grouped.merged_login_time)) / 60), 0) < 300 then 'Half Day'
         else 'Full Day'
       end
     from grouped

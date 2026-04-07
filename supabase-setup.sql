@@ -17,15 +17,37 @@ create table if not exists public.profiles (
   role text not null check (role in ('admin', 'hr', 'manager', 'employee')),
   department text,
   manager_id uuid references public.profiles(id) on delete set null,
+  reporting_manager_id uuid,
   is_active boolean not null default true,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
 
 alter table public.profiles add column if not exists manager_id uuid references public.profiles(id) on delete set null;
+alter table public.profiles add column if not exists reporting_manager_id uuid;
 alter table public.profiles add column if not exists is_active boolean not null default true;
 alter table public.profiles add column if not exists created_at timestamptz not null default timezone('utc', now());
 alter table public.profiles add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+create table if not exists public.reporting_managers (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  department text,
+  profile_id uuid references public.profiles(id) on delete set null,
+  is_active boolean not null default true,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.profiles
+  drop constraint if exists profiles_reporting_manager_id_fkey;
+
+alter table public.profiles
+  add constraint profiles_reporting_manager_id_fkey
+  foreign key (reporting_manager_id) references public.reporting_managers(id) on delete set null;
+
+create index if not exists profiles_reporting_manager_id_idx on public.profiles (reporting_manager_id);
+create index if not exists reporting_managers_profile_id_idx on public.reporting_managers (profile_id);
 
 create or replace view public.user_roles as
 select id as user_id, role
@@ -140,6 +162,7 @@ create table if not exists public.access_grants (
   role text not null check (role in ('hr', 'manager', 'employee')),
   department text,
   manager_id uuid references public.profiles(id) on delete set null,
+  reporting_manager_id uuid references public.reporting_managers(id) on delete set null,
   auth_user_id uuid unique references auth.users(id) on delete set null,
   granted_by uuid references public.profiles(id) on delete set null,
   invite_count integer not null default 1 check (invite_count >= 1),
@@ -148,9 +171,42 @@ create table if not exists public.access_grants (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
+alter table public.access_grants add column if not exists reporting_manager_id uuid references public.reporting_managers(id) on delete set null;
+
 create index if not exists access_grants_last_invited_at_idx on public.access_grants (last_invited_at desc);
 create index if not exists access_grants_role_idx on public.access_grants (role);
 create index if not exists access_grants_granted_by_idx on public.access_grants (granted_by);
+create index if not exists access_grants_reporting_manager_id_idx on public.access_grants (reporting_manager_id);
+
+insert into public.reporting_managers (name, department, is_active)
+values
+  ('Raviteja', 'IT Department', true),
+  ('Darshan', 'Operations', true),
+  ('Sindhuja', 'Cyber Security', true),
+  ('Sai Nithya', 'Leadership', true),
+  ('Satya Sai', 'Leadership', true)
+on conflict (name) do update
+set
+  department = excluded.department,
+  is_active = excluded.is_active;
+
+update public.reporting_managers as reporting_manager
+set profile_id = profiles.id
+from public.profiles as profiles
+where reporting_manager.profile_id is null
+  and lower(replace(reporting_manager.name, ' ', '')) = lower(replace(profiles.name, ' ', ''));
+
+update public.profiles as profile
+set reporting_manager_id = reporting_manager.id
+from public.reporting_managers as reporting_manager
+where profile.reporting_manager_id is null
+  and reporting_manager.profile_id = profile.manager_id;
+
+update public.access_grants as access_grant
+set reporting_manager_id = reporting_manager.id
+from public.reporting_managers as reporting_manager
+where access_grant.reporting_manager_id is null
+  and reporting_manager.profile_id = access_grant.manager_id;
 
 -- ------------------------------------------------------------
 -- Business tables
@@ -483,6 +539,7 @@ alter table public.profiles enable row level security;
 alter table public.module_access enable row level security;
 alter table public.role_permissions enable row level security;
 alter table public.access_grants enable row level security;
+alter table public.reporting_managers enable row level security;
 alter table public.attendance enable row level security;
 alter table public.leaves enable row level security;
 alter table public.payroll enable row level security;
@@ -528,6 +585,12 @@ create policy "Admins can read access grants"
 on public.access_grants
 for select
 using (public.current_app_role() = 'admin');
+
+drop policy if exists "Authenticated users can read reporting managers" on public.reporting_managers;
+create policy "Authenticated users can read reporting managers"
+on public.reporting_managers
+for select
+using (auth.uid() is not null);
 
 drop policy if exists "Attendance rows are viewable by scope" on public.attendance;
 drop policy if exists "Attendance rows can be created by owner" on public.attendance;
