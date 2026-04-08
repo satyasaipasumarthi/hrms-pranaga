@@ -4,7 +4,7 @@ import GlowButton from "@/components/ui/GlowButton";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { getAuthActionTypeFromHash, type AuthActionType } from "@/lib/auth-links";
+import { getAuthActionTypeFromLocation, type AuthActionType } from "@/lib/auth-links";
 import { supabase } from "@/lib/supabase";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -14,7 +14,7 @@ const getCurrentAuthAction = (): AuthActionType | null => {
     return null;
   }
 
-  return getAuthActionTypeFromHash(window.location.hash);
+  return getAuthActionTypeFromLocation(window.location.hash, window.location.search);
 };
 
 const Login = () => {

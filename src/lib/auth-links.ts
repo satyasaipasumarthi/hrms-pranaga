@@ -1,5 +1,9 @@
 export type AuthActionType = "recovery" | "invite";
 
+const normalizeAuthActionType = (value: string | null): AuthActionType | null => {
+  return value === "recovery" || value === "invite" ? value : null;
+};
+
 export const getAuthActionTypeFromHash = (hash: string): AuthActionType | null => {
   const normalizedHash = hash.startsWith("#") ? hash.slice(1) : hash;
   if (!normalizedHash) {
@@ -7,9 +11,21 @@ export const getAuthActionTypeFromHash = (hash: string): AuthActionType | null =
   }
 
   const params = new URLSearchParams(normalizedHash);
-  const type = params.get("type");
-
-  return type === "recovery" || type === "invite" ? type : null;
+  return normalizeAuthActionType(params.get("type"));
 };
 
-export const hasPendingAuthAction = (hash: string) => getAuthActionTypeFromHash(hash) !== null;
+export const getAuthActionTypeFromSearch = (search: string): AuthActionType | null => {
+  const normalizedSearch = search.startsWith("?") ? search.slice(1) : search;
+  if (!normalizedSearch) {
+    return null;
+  }
+
+  const params = new URLSearchParams(normalizedSearch);
+  return normalizeAuthActionType(params.get("auth_action"));
+};
+
+export const getAuthActionTypeFromLocation = (hash: string, search = "") =>
+  getAuthActionTypeFromHash(hash) ?? getAuthActionTypeFromSearch(search);
+
+export const hasPendingAuthAction = (hash: string, search = "") =>
+  getAuthActionTypeFromLocation(hash, search) !== null;

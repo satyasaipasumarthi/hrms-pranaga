@@ -35,7 +35,7 @@ const Loading = () => (
 const AuthRedirect = () => {
   const { isAuthenticated, homePath } = useAuth();
   const shouldShowAuthAction =
-    typeof window !== "undefined" && hasPendingAuthAction(window.location.hash);
+    typeof window !== "undefined" && hasPendingAuthAction(window.location.hash, window.location.search);
 
   if (isAuthenticated && !shouldShowAuthAction) return <Navigate to={homePath} replace />;
   return <Login />;
@@ -46,18 +46,19 @@ const AuthActionRedirector = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!hasPendingAuthAction(location.hash) || location.pathname === "/login") {
+    if (!hasPendingAuthAction(location.hash, location.search) || location.pathname === "/login") {
       return;
     }
 
     navigate(
       {
         pathname: "/login",
+        search: location.search,
         hash: location.hash,
       },
       { replace: true },
     );
-  }, [location.hash, location.pathname, navigate]);
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   return null;
 };

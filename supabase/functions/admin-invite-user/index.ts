@@ -29,7 +29,13 @@ const jsonResponse = (body: Record<string, unknown>, status = 200) =>
 const resolveInviteRedirectUrl = (request: Request) => {
   const configuredUrl = Deno.env.get("INVITE_REDIRECT_URL")?.trim();
   if (configuredUrl) {
-    return configuredUrl;
+    try {
+      const url = new URL(configuredUrl);
+      url.searchParams.set("auth_action", "invite");
+      return url.toString();
+    } catch {
+      return configuredUrl;
+    }
   }
 
   const originHeader = request.headers.get("origin")?.trim();
@@ -38,7 +44,9 @@ const resolveInviteRedirectUrl = (request: Request) => {
   }
 
   try {
-    return new URL("/login", originHeader).toString();
+    const url = new URL("/login", originHeader);
+    url.searchParams.set("auth_action", "invite");
+    return url.toString();
   } catch {
     return undefined;
   }
