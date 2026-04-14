@@ -8,7 +8,7 @@ import MainLayout from "@/components/layout/MainLayout";
 import SplashScreen from "@/components/SplashScreen";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
-import { hasPendingAuthAction } from "@/lib/auth-links";
+import { hasPendingAuthAction, primePendingAuthAction } from "@/lib/auth-links";
 
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Attendance = lazy(() => import("./pages/Attendance"));
@@ -25,6 +25,10 @@ const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+if (typeof window !== "undefined") {
+  primePendingAuthAction(window.location.hash, window.location.search);
+}
 
 const Loading = () => (
   <div className="flex items-center justify-center h-64">

@@ -4,7 +4,7 @@ import GlowButton from "@/components/ui/GlowButton";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/hooks/use-toast";
-import { getAuthActionTypeFromLocation, type AuthActionType } from "@/lib/auth-links";
+import { clearPendingAuthAction, getAuthActionTypeFromLocation, type AuthActionType } from "@/lib/auth-links";
 import { supabase } from "@/lib/supabase";
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -69,6 +69,7 @@ const Login = () => {
       return;
     }
 
+    clearPendingAuthAction();
     window.history.replaceState({}, document.title, window.location.pathname);
     setAuthActionType(null);
   };
@@ -78,6 +79,7 @@ const Login = () => {
     const result = await login(email, password);
 
     if (result.success) {
+      clearPendingAuthAction();
       navigate(useAuth.getState().homePath);
       return;
     }
