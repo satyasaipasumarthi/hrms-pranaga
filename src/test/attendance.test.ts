@@ -15,10 +15,10 @@ describe("attendance thresholds", () => {
     expect(calculateAttendanceStatus(305)).toBe("Full Day");
   });
 
-  it("uses the same thresholds for open shifts based on total worked hours", () => {
-    expect(calculateAttendanceStatus(120, { isOpenShift: true })).toBe("Absent");
-    expect(calculateAttendanceStatus(240, { isOpenShift: true })).toBe("Half Day");
-    expect(calculateAttendanceStatus(320, { isOpenShift: true })).toBe("Full Day");
+  it("keeps open shifts in pending status until checkout completes", () => {
+    expect(calculateAttendanceStatus(120, { isOpenShift: true })).toBe("Pending");
+    expect(calculateAttendanceStatus(240, { isOpenShift: true })).toBe("Pending");
+    expect(calculateAttendanceStatus(320, { isOpenShift: true })).toBe("Pending");
   });
 
   it("formats total worked hours for the monthly log", () => {

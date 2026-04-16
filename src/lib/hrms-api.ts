@@ -265,7 +265,7 @@ const getDifferenceBasedAttendance = ({
     checkInIso,
     checkOutIso,
     totalMinutes,
-    status: calculateAttendanceStatus(totalMinutes),
+    status: calculateAttendanceStatus(totalMinutes, { isOpenShift: hasOpenShift }),
     createdAt,
     isOpenShift: hasOpenShift,
   };

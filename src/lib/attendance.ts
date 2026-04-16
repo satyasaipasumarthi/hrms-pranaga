@@ -5,8 +5,12 @@ export type AttendanceStatus = "Absent" | "Half Day" | "Full Day" | "Pending";
 
 export const calculateAttendanceStatus = (
   totalMinutes: number,
-  _options?: { isOpenShift?: boolean },
+  options?: { isOpenShift?: boolean },
 ): AttendanceStatus => {
+  if (options?.isOpenShift) {
+    return "Pending";
+  }
+
   const normalizedMinutes = Math.max(Math.round(totalMinutes), 0);
   if (normalizedMinutes < ABSENT_THRESHOLD_MINUTES) {
     return "Absent";
