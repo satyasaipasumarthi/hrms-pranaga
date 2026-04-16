@@ -47,7 +47,7 @@ const Attendance = () => {
       const stored = localStorage.getItem(`hrms_checkin_${user.id}`);
 
       if (openShift) {
-        const activeCheckIn = stored ?? openShift.checkInIso;
+        const activeCheckIn = openShift.checkInIso ?? stored;
         if (!activeCheckIn) {
           setCheckedIn(false);
           setCheckInTime(null);
@@ -79,12 +79,6 @@ const Attendance = () => {
   useEffect(() => {
     if (!user) {
       return;
-    }
-
-    const stored = localStorage.getItem(`hrms_checkin_${user.id}`);
-    if (stored) {
-      setCheckedIn(true);
-      setCheckInTime(new Date(stored));
     }
 
     void loadAttendance();
