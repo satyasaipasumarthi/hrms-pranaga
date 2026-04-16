@@ -205,6 +205,77 @@ const getTodayDateKey = () => new Date().toISOString().split("T")[0];
 const getDayAlreadyRecordedMessage = () =>
   "Today's attendance has already been recorded. A new entry can be created tomorrow.";
 
+const closeStaleCurrentAttendanceRows = async (userId: string, date: string) => {
+  const staleRowsResponse = await supabase
+    .from("attendance")
+    .select("id, check_in")
+    .eq("user_id", userId)
+    .is("check_out", null)
+    .lt("date", date);
+
+  if (staleRowsResponse.error) {
+    if (isNoRowsError(staleRowsResponse.error) || isMissingResourceError(staleRowsResponse.error)) {
+      return false;
+    }
+
+    throw staleRowsResponse.error;
+  }
+
+  for (const row of staleRowsResponse.data ?? []) {
+    const staleCheckIn = row.check_in ? String(row.check_in) : new Date().toISOString();
+    const closeResponse = await supabase
+      .from("attendance")
+      .update({
+        check_out: staleCheckIn,
+        status: "Absent",
+      })
+      .eq("id", String(row.id))
+      .eq("user_id", userId);
+
+    if (closeResponse.error) {
+      throw closeResponse.error;
+    }
+  }
+
+  return (staleRowsResponse.data?.length ?? 0) > 0;
+};
+
+const closeStaleLegacyAttendanceRows = async (userId: string, startIso: string) => {
+  const staleRowsResponse = await supabase
+    .from("attendance")
+    .select("id, login_time")
+    .eq("user_id", userId)
+    .is("logout_time", null)
+    .lt("login_time", startIso);
+
+  if (staleRowsResponse.error) {
+    if (isNoRowsError(staleRowsResponse.error) || isMissingResourceError(staleRowsResponse.error)) {
+      return false;
+    }
+
+    throw staleRowsResponse.error;
+  }
+
+  for (const row of staleRowsResponse.data ?? []) {
+    const staleLoginTime = row.login_time ? String(row.login_time) : new Date().toISOString();
+    const closeResponse = await supabase
+      .from("attendance")
+      .update({
+        logout_time: staleLoginTime,
+        duration_minutes: 0,
+        attendance_status: "Absent",
+      })
+      .eq("id", String(row.id))
+      .eq("user_id", userId);
+
+    if (closeResponse.error) {
+      throw closeResponse.error;
+    }
+  }
+
+  return (staleRowsResponse.data?.length ?? 0) > 0;
+};
+
 type AggregatedAttendanceRow = {
   id: string;
   userId: string;
@@ -835,6 +906,8 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
       throw new Error(getDayAlreadyRecordedMessage());
     }
 
+    await closeStaleCurrentAttendanceRows(user.id, date);
+
     const { error } = await supabase.from("attendance").insert(
       {
         user_id: user.id,
@@ -881,6 +954,8 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
 
     throw new Error(getDayAlreadyRecordedMessage());
   }
+
+  await closeStaleLegacyAttendanceRows(user.id, startIso);
 
   const legacyInsertPayload = {
     user_id: user.id,
