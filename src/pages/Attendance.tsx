@@ -4,6 +4,7 @@ import PageWrapper from "@/components/ui/PageWrapper";
 import GlowButton from "@/components/ui/GlowButton";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { getBusinessDateKey } from "@/lib/attendance";
 import {
   checkInCurrentUser,
   checkOutCurrentUser,
@@ -23,7 +24,7 @@ const Attendance = () => {
 
   const canTrackOwnTime = hasModulePermission(permissions, "attendance", "create");
   const showEmployeeColumn = hasMinimumDataScope(permissions, "attendance", "team");
-  const today = new Date().toISOString().split("T")[0];
+  const today = getBusinessDateKey();
   const todaysClosedRecord = useMemo(
     () => attendanceLog.find((row) => row.userId === user?.id && row.date === today && Boolean(row.checkOut)),
     [attendanceLog, today, user?.id],
@@ -65,6 +66,9 @@ const Attendance = () => {
       }
     } catch (error) {
       console.error("Failed to load attendance:", error);
+      setCheckedIn(false);
+      setCheckInTime(null);
+      localStorage.removeItem(`hrms_checkin_${user.id}`);
       setAttendanceLog([]);
       toast({
         title: "Attendance load issue",
@@ -107,7 +111,7 @@ const Attendance = () => {
     return () => clearInterval(timer);
   }, [checkInTime]);
 
-  const activeShiftDate = useMemo(() => checkInTime?.toISOString().split("T")[0] ?? null, [checkInTime]);
+  const activeShiftDate = useMemo(() => (checkInTime ? getBusinessDateKey(checkInTime) : null), [checkInTime]);
 
   const handleCheckIn = async () => {
     if (!user) {
@@ -223,7 +227,7 @@ const Attendance = () => {
                           className={`text-xs px-2 py-1 rounded-full border ${
                             row.status === "Full Day"
                               ? "status-approved"
-                              : row.status === "Half Day"
+                              : row.status === "Half Day" || row.status === "Pending"
                                 ? "status-pending"
                                 : "status-rejected"
                           }`}

@@ -4,6 +4,7 @@ import { AlertTriangle, Bell, CalendarOff, ClipboardCheck, Star, UserCheck, User
 import StatCard from "@/components/ui/StatCard";
 import PageWrapper from "@/components/ui/PageWrapper";
 import { useAuth } from "@/hooks/useAuth";
+import { getBusinessDateKey } from "@/lib/attendance";
 import {
   fetchAttendanceRecords,
   fetchDepartmentCounts,
@@ -74,7 +75,7 @@ const Dashboard = () => {
     void loadDashboardData();
   }, [permissions, role, user]);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = getBusinessDateKey();
   const teamCount = useMemo(() => visibleProfiles.filter((profile) => profile.id !== user?.id).length, [user?.id, visibleProfiles]);
   const todayAttendanceCount = useMemo(
     () => attendanceRecords.filter((record) => record.date === today && Boolean(record.checkIn)).length,
@@ -280,7 +281,7 @@ const Dashboard = () => {
                         className={`text-xs px-2 py-1 rounded-full border ${
                           record.status === "Full Day"
                             ? "status-approved"
-                            : record.status === "Half Day"
+                            : record.status === "Half Day" || record.status === "Pending"
                               ? "status-pending"
                               : "status-rejected"
                         }`}

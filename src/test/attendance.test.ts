@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration } from "@/lib/attendance";
+import {
+  calculateAttendanceStatus,
+  calculateDurationMinutes,
+  formatWorkedDuration,
+  getBusinessDateKey,
+  getBusinessDateRange,
+} from "@/lib/attendance";
 
 describe("attendance thresholds", () => {
   it("marks durations below 3 hours as absent", () => {
@@ -36,5 +42,18 @@ describe("attendance thresholds", () => {
     expect(calculateAttendanceStatus(halfDayMinutes)).toBe("Half Day");
     expect(formatWorkedDuration(fullDayMinutes)).toBe("5h 05m");
     expect(calculateAttendanceStatus(fullDayMinutes)).toBe("Full Day");
+  });
+
+  it("uses the India business day instead of raw UTC date boundaries", () => {
+    expect(getBusinessDateKey("2026-04-15T20:00:00.000Z")).toBe("2026-04-16");
+    expect(getBusinessDateKey("2026-04-16T18:29:59.000Z")).toBe("2026-04-16");
+    expect(getBusinessDateKey("2026-04-16T18:30:00.000Z")).toBe("2026-04-17");
+  });
+
+  it("builds the correct UTC query range for one India business day", () => {
+    const { startIso, endIso } = getBusinessDateRange("2026-04-16");
+
+    expect(startIso).toBe("2026-04-15T18:30:00.000Z");
+    expect(endIso).toBe("2026-04-16T18:30:00.000Z");
   });
 });

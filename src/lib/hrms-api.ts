@@ -1,5 +1,5 @@
 import type { PostgrestError } from "@supabase/supabase-js";
-import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration, getUtcDateKey, getUtcDateRange } from "@/lib/attendance";
+import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration, getBusinessDateKey, getBusinessDateRange } from "@/lib/attendance";
 import { createPermissionMap, getModulePermission, resolvePermissionRows, type ModuleAccessRowRecord, type PermissionMap, type PermissionRowRecord } from "@/lib/permissions";
 import { normalizeRole, type AppModule, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
@@ -194,13 +194,13 @@ const formatTime = (value: string | null) => {
 
 const formatDate = (value: string | null) => {
   if (!value) {
-    return new Date().toISOString().split("T")[0];
+    return getBusinessDateKey();
   }
 
-  return new Date(value).toISOString().split("T")[0];
+  return getBusinessDateKey(value);
 };
 
-const getTodayDateKey = () => new Date().toISOString().split("T")[0];
+const getTodayDateKey = () => getBusinessDateKey();
 
 const getDayAlreadyRecordedMessage = () =>
   "Today's attendance has already been recorded. A new entry can be created tomorrow.";
@@ -405,7 +405,7 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
     const userId = String(row.user_id);
     const loginTime = row.login_time ? String(row.login_time) : null;
     const logoutTime = row.logout_time ? String(row.logout_time) : null;
-    const date = getUtcDateKey(loginTime ?? (row.created_at ? String(row.created_at) : new Date()));
+    const date = getBusinessDateKey(loginTime ?? (row.created_at ? String(row.created_at) : new Date()));
     const key = `${userId}:${date}`;
     const existing = groupedRows.get(key);
     const createdAt = row.created_at ? String(row.created_at) : null;
@@ -892,17 +892,22 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
 
   const existingResponse = await supabase
     .from("attendance")
-    .select("id, check_in, check_out")
+    .select("id, check_in, check_out, created_at")
     .eq("user_id", user.id)
     .eq("date", date)
-    .maybeSingle();
+    .order("created_at", { ascending: true });
 
   if (!existingResponse.error) {
-    if (existingResponse.data?.id) {
-      if (!existingResponse.data.check_out) {
-        return existingResponse.data.check_in ? String(existingResponse.data.check_in) : nowIso;
-      }
+    const existingRows = existingResponse.data ?? [];
+    const openRow = existingRows.find((row) => !row.check_out);
 
+    if (openRow?.id) {
+      if (!openRow.check_out) {
+        return openRow.check_in ? String(openRow.check_in) : nowIso;
+      }
+    }
+
+    if (existingRows.length > 0) {
       throw new Error(getDayAlreadyRecordedMessage());
     }
 
@@ -928,7 +933,7 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
     throw existingResponse.error;
   }
 
-  const { startIso, endIso } = getUtcDateRange(date);
+  const { startIso, endIso } = getBusinessDateRange(date);
   const legacyExistingResponse = await supabase
     .from("attendance")
     .select("id, login_time, logout_time")
@@ -992,24 +997,39 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
 export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
   const currentAttendanceResponse = await supabase
     .from("attendance")
-    .select("id, check_in, check_out")
+    .select("id, check_in, check_out, created_at")
     .eq("user_id", user.id)
-    .eq("date", date);
+    .eq("date", date)
+    .order("created_at", { ascending: true });
 
   if (!currentAttendanceResponse.error) {
-    const currentRow = currentAttendanceResponse.data?.[0];
+    const currentRows = currentAttendanceResponse.data ?? [];
+    const openRows = currentRows.filter((row) => !row.check_out);
+    const currentRow = openRows[0];
 
     if (!currentRow) {
-      throw new Error("No attendance record exists for today.");
-    }
-
-    if (currentRow.check_out) {
-      return;
+      throw new Error("No active attendance record exists for today.");
     }
 
     const nowIso = new Date().toISOString();
-    const durationMinutes = calculateDurationMinutes(String(currentRow.check_in ?? ""), nowIso);
+    const earliestCheckIn = openRows.reduce<string | null>(
+      (earliest, row) => {
+        const checkInValue = row.check_in ? String(row.check_in) : null;
+        if (!checkInValue) {
+          return earliest;
+        }
+
+        if (!earliest) {
+          return checkInValue;
+        }
+
+        return new Date(checkInValue).getTime() <= new Date(earliest).getTime() ? checkInValue : earliest;
+      },
+      null,
+    );
+    const durationMinutes = calculateDurationMinutes(earliestCheckIn ?? String(currentRow.check_in ?? ""), nowIso);
     const status = calculateAttendanceStatus(durationMinutes);
+    const idsToClose = openRows.map((row) => String(row.id));
 
     const { error } = await supabase
       .from("attendance")
@@ -1017,7 +1037,7 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
         check_out: nowIso,
         status,
       })
-      .eq("id", currentRow.id)
+      .in("id", idsToClose)
       .eq("user_id", user.id);
 
     if (error) {
@@ -1031,7 +1051,7 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
     throw currentAttendanceResponse.error;
   }
 
-  const { startIso, endIso } = getUtcDateRange(date);
+  const { startIso, endIso } = getBusinessDateRange(date);
   const legacyOpenShiftResponse = await supabase
     .from("attendance")
     .select("id, login_time")
