@@ -23,7 +23,7 @@ const Attendance = () => {
 
   const canTrackOwnTime = hasModulePermission(permissions, "attendance", "create");
   const showEmployeeColumn = hasMinimumDataScope(permissions, "attendance", "team");
-  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const today = new Date().toISOString().split("T")[0];
   const todaysClosedRecord = useMemo(
     () => attendanceLog.find((row) => row.userId === user?.id && row.date === today && Boolean(row.checkOut)),
     [attendanceLog, today, user?.id],
@@ -46,9 +46,18 @@ const Attendance = () => {
       const openShift = rows.find((row) => row.userId === user.id && row.date === today && !row.checkOut);
       const stored = localStorage.getItem(`hrms_checkin_${user.id}`);
 
-      if (stored && openShift) {
+      if (openShift) {
+        const activeCheckIn = stored ?? openShift.checkInIso;
+        if (!activeCheckIn) {
+          setCheckedIn(false);
+          setCheckInTime(null);
+          localStorage.removeItem(`hrms_checkin_${user.id}`);
+          return;
+        }
+
         setCheckedIn(true);
-        setCheckInTime(new Date(stored));
+        setCheckInTime(new Date(activeCheckIn));
+        localStorage.setItem(`hrms_checkin_${user.id}`, activeCheckIn);
       } else if (!openShift) {
         setCheckedIn(false);
         setCheckInTime(null);

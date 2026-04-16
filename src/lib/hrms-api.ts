@@ -68,6 +68,8 @@ export interface AttendanceRecord {
   employeeName: string;
   department: string | null;
   date: string;
+  checkInIso: string | null;
+  checkOutIso: string | null;
   checkIn: string | null;
   checkOut: string | null;
   totalMinutes: number;
@@ -256,7 +258,7 @@ const getDifferenceBasedAttendance = ({
   createdAt: string | null;
 }) => {
   const hasOpenShift = Boolean(checkInIso && !checkOutIso);
-  const totalMinutes = calculateDurationMinutes(checkInIso, checkOutIso, { useCurrentTimeIfOpen: hasOpenShift });
+  const totalMinutes = hasOpenShift ? 0 : calculateDurationMinutes(checkInIso, checkOutIso);
 
   return {
     id,
@@ -801,6 +803,8 @@ export const fetchAttendanceRecords = async (user: AuthUser, permissionMap: Perm
       employeeName: profile?.name ?? (userId === user.id ? user.name : "Team member"),
       department: profile?.department ?? (userId === user.id ? user.department : null),
       date: row.date,
+      checkInIso: row.checkInIso,
+      checkOutIso: row.checkOutIso,
       checkIn: formatTime(row.checkInIso),
       checkOut: formatTime(row.checkOutIso),
       totalMinutes: row.totalMinutes,
