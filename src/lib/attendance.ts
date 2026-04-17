@@ -2,8 +2,36 @@ export const ABSENT_THRESHOLD_MINUTES = 3 * 60;
 export const FULL_DAY_THRESHOLD_MINUTES = 5 * 60;
 export const BUSINESS_TIME_ZONE = "Asia/Kolkata";
 const BUSINESS_UTC_OFFSET_MINUTES = 330;
+const ISO_TIMEZONE_SUFFIX_PATTERN = /(Z|[+-]\d{2}(?::?\d{2})?)$/i;
+const SUPABASE_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/;
 
 export type AttendanceStatus = "Absent" | "Half Day" | "Full Day" | "Pending";
+
+export const normalizeAttendanceTimestamp = (value: string) => {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return trimmedValue;
+  }
+
+  const isoLikeValue = trimmedValue.includes(" ") ? trimmedValue.replace(" ", "T") : trimmedValue;
+  if (ISO_TIMEZONE_SUFFIX_PATTERN.test(isoLikeValue)) {
+    return isoLikeValue;
+  }
+
+  if (SUPABASE_TIMESTAMP_PATTERN.test(trimmedValue)) {
+    return `${isoLikeValue}Z`;
+  }
+
+  return trimmedValue;
+};
+
+export const parseAttendanceDateValue = (value: string | Date) => {
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+
+  return new Date(normalizeAttendanceTimestamp(value));
+};
 
 export const calculateAttendanceStatus = (
   totalMinutes: number,
@@ -34,9 +62,9 @@ export const calculateDurationMinutes = (
     return 0;
   }
 
-  const start = new Date(startValue);
+  const start = parseAttendanceDateValue(startValue);
   const end = endValue
-    ? new Date(endValue)
+    ? parseAttendanceDateValue(endValue)
     : options?.useCurrentTimeIfOpen
       ? (options.now ?? new Date())
       : null;
@@ -57,7 +85,7 @@ export const formatWorkedDuration = (totalMinutes: number) => {
 };
 
 const getBusinessDateParts = (value: string | Date) => {
-  const date = typeof value === "string" ? new Date(value) : value;
+  const date = parseAttendanceDateValue(value);
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: BUSINESS_TIME_ZONE,
     year: "numeric",

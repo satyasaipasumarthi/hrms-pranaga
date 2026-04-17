@@ -1,5 +1,12 @@
 import type { PostgrestError } from "@supabase/supabase-js";
-import { calculateAttendanceStatus, calculateDurationMinutes, formatWorkedDuration, getBusinessDateKey, getBusinessDateRange } from "@/lib/attendance";
+import {
+  calculateAttendanceStatus,
+  calculateDurationMinutes,
+  formatWorkedDuration,
+  getBusinessDateKey,
+  getBusinessDateRange,
+  parseAttendanceDateValue,
+} from "@/lib/attendance";
 import { createPermissionMap, getModulePermission, resolvePermissionRows, type ModuleAccessRowRecord, type PermissionMap, type PermissionRowRecord } from "@/lib/permissions";
 import { normalizeRole, type AppModule, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
@@ -189,7 +196,16 @@ const formatTime = (value: string | null) => {
     return null;
   }
 
-  return new Date(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  return parseAttendanceDateValue(value).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+const getParsedTimestamp = (value: string | null) => {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = parseAttendanceDateValue(value).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
 };
 
 const formatDate = (value: string | null) => {
@@ -288,7 +304,7 @@ type AggregatedAttendanceRow = {
 
 const getEarlierIso = (left: string | null, right: string | null) => {
   if (left && right) {
-    return new Date(left).getTime() <= new Date(right).getTime() ? left : right;
+    return (getParsedTimestamp(left) ?? Number.POSITIVE_INFINITY) <= (getParsedTimestamp(right) ?? Number.POSITIVE_INFINITY) ? left : right;
   }
 
   return left ?? right;
@@ -296,7 +312,7 @@ const getEarlierIso = (left: string | null, right: string | null) => {
 
 const getLaterIso = (left: string | null, right: string | null) => {
   if (left && right) {
-    return new Date(left).getTime() >= new Date(right).getTime() ? left : right;
+    return (getParsedTimestamp(left) ?? Number.NEGATIVE_INFINITY) >= (getParsedTimestamp(right) ?? Number.NEGATIVE_INFINITY) ? left : right;
   }
 
   return left ?? right;
@@ -310,7 +326,10 @@ const getPreferredAttendanceId = (
     return existing.createdAt ? existing.id : next.id;
   }
 
-  return new Date(existing.createdAt).getTime() <= new Date(next.createdAt).getTime() ? existing.id : next.id;
+  return (getParsedTimestamp(existing.createdAt) ?? Number.POSITIVE_INFINITY) <=
+    (getParsedTimestamp(next.createdAt) ?? Number.POSITIVE_INFINITY)
+    ? existing.id
+    : next.id;
 };
 
 const getDifferenceBasedAttendance = ({
@@ -383,7 +402,10 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
         checkInIso: mergedCheckIn,
         checkOutIso: mergedCheckOut,
         createdAt: existing.createdAt && createdAt
-          ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+          ? ((getParsedTimestamp(existing.createdAt) ?? Number.POSITIVE_INFINITY) <=
+            (getParsedTimestamp(createdAt) ?? Number.POSITIVE_INFINITY)
+              ? existing.createdAt
+              : createdAt)
           : existing.createdAt ?? createdAt,
       }),
     );
@@ -392,8 +414,8 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
   return Array.from(groupedRows.values())
     .map(({ createdAt: _createdAt, isOpenShift: _isOpenShift, ...attendance }) => attendance)
     .sort((left, right) => {
-      const leftTime = left.checkInIso ? new Date(left.checkInIso).getTime() : 0;
-      const rightTime = right.checkInIso ? new Date(right.checkInIso).getTime() : 0;
+      const leftTime = getParsedTimestamp(left.checkInIso) ?? 0;
+      const rightTime = getParsedTimestamp(right.checkInIso) ?? 0;
       return rightTime - leftTime;
     });
 };
@@ -437,7 +459,10 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
         checkInIso: mergedCheckIn,
         checkOutIso: mergedCheckOut,
         createdAt: existing.createdAt && createdAt
-          ? (new Date(existing.createdAt).getTime() <= new Date(createdAt).getTime() ? existing.createdAt : createdAt)
+          ? ((getParsedTimestamp(existing.createdAt) ?? Number.POSITIVE_INFINITY) <=
+            (getParsedTimestamp(createdAt) ?? Number.POSITIVE_INFINITY)
+              ? existing.createdAt
+              : createdAt)
           : existing.createdAt ?? createdAt,
       }),
     );
@@ -446,8 +471,8 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
   return Array.from(groupedRows.values())
     .map(({ createdAt: _createdAt, isOpenShift: _isOpenShift, ...attendance }) => attendance)
     .sort((left, right) => {
-      const leftTime = left.checkInIso ? new Date(left.checkInIso).getTime() : 0;
-      const rightTime = right.checkInIso ? new Date(right.checkInIso).getTime() : 0;
+      const leftTime = getParsedTimestamp(left.checkInIso) ?? 0;
+      const rightTime = getParsedTimestamp(right.checkInIso) ?? 0;
       return rightTime - leftTime;
     });
 };
@@ -1023,7 +1048,10 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
           return checkInValue;
         }
 
-        return new Date(checkInValue).getTime() <= new Date(earliest).getTime() ? checkInValue : earliest;
+        return (getParsedTimestamp(checkInValue) ?? Number.POSITIVE_INFINITY) <=
+          (getParsedTimestamp(earliest) ?? Number.POSITIVE_INFINITY)
+          ? checkInValue
+          : earliest;
       },
       null,
     );
@@ -1073,7 +1101,7 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
 
   const now = new Date();
   const loginTime = legacyOpenShiftResponse.data.login_time
-    ? new Date(String(legacyOpenShiftResponse.data.login_time))
+    ? parseAttendanceDateValue(String(legacyOpenShiftResponse.data.login_time))
     : null;
   const durationMinutes = loginTime ? Math.max(Math.round((now.getTime() - loginTime.getTime()) / 60000), 0) : 0;
   const status = calculateAttendanceStatus(durationMinutes);

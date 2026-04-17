@@ -4,7 +4,7 @@ import PageWrapper from "@/components/ui/PageWrapper";
 import GlowButton from "@/components/ui/GlowButton";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { getBusinessDateKey } from "@/lib/attendance";
+import { getBusinessDateKey, parseAttendanceDateValue } from "@/lib/attendance";
 import {
   checkInCurrentUser,
   checkOutCurrentUser,
@@ -57,7 +57,7 @@ const Attendance = () => {
         }
 
         setCheckedIn(true);
-        setCheckInTime(new Date(activeCheckIn));
+        setCheckInTime(parseAttendanceDateValue(activeCheckIn));
         localStorage.setItem(`hrms_checkin_${user.id}`, activeCheckIn);
       } else if (!openShift) {
         setCheckedIn(false);
@@ -121,7 +121,7 @@ const Attendance = () => {
     try {
       const checkInTimestamp = await checkInCurrentUser(user);
       setCheckedIn(true);
-      setCheckInTime(new Date(checkInTimestamp));
+      setCheckInTime(parseAttendanceDateValue(checkInTimestamp));
       localStorage.setItem(`hrms_checkin_${user.id}`, checkInTimestamp);
       await loadAttendance();
     } catch (error) {

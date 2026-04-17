@@ -5,6 +5,8 @@ import {
   formatWorkedDuration,
   getBusinessDateKey,
   getBusinessDateRange,
+  normalizeAttendanceTimestamp,
+  parseAttendanceDateValue,
 } from "@/lib/attendance";
 
 describe("attendance thresholds", () => {
@@ -55,5 +57,10 @@ describe("attendance thresholds", () => {
 
     expect(startIso).toBe("2026-04-15T18:30:00.000Z");
     expect(endIso).toBe("2026-04-16T18:30:00.000Z");
+  });
+
+  it("normalizes legacy Supabase timestamps without timezone suffixes as UTC", () => {
+    expect(normalizeAttendanceTimestamp("2026-04-17 07:47:00")).toBe("2026-04-17T07:47:00Z");
+    expect(parseAttendanceDateValue("2026-04-17 07:47:00").toISOString()).toBe("2026-04-17T07:47:00.000Z");
   });
 });
