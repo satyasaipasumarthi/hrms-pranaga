@@ -118,11 +118,11 @@ values
   ('manager', 'payroll', true, false, false, false, false, 'own'),
   ('manager', 'performance', true, false, true, false, false, 'team'),
   ('manager', 'wall_of_fame', true, false, false, false, false, 'organization'),
-  ('manager', 'kudos', true, true, false, false, false, 'team'),
+  ('manager', 'kudos', true, true, false, false, false, 'organization'),
 
   ('hr', 'dashboard', true, false, false, false, false, 'organization'),
   ('hr', 'attendance', true, true, true, false, false, 'organization'),
-  ('hr', 'leave', true, false, true, false, true, 'organization'),
+  ('hr', 'leave', true, true, true, false, true, 'organization'),
   ('hr', 'payroll', true, false, true, false, false, 'organization'),
   ('hr', 'performance', true, false, true, false, false, 'organization'),
   ('hr', 'employees', true, false, true, false, false, 'organization'),
@@ -141,7 +141,7 @@ values
   ('admin', 'wall_of_fame', true, false, false, false, false, 'all'),
   ('admin', 'access_control', true, true, true, false, false, 'all'),
   ('admin', 'settings', true, true, true, true, false, 'all'),
-  ('admin', 'kudos', true, false, false, false, false, 'all')
+  ('admin', 'kudos', true, true, false, false, false, 'all')
 on conflict (role, module) do update
 set
   can_view = excluded.can_view,
@@ -435,6 +435,10 @@ begin
   end if;
 
   if data_scope = 'organization' then
+    if module_name = 'kudos' then
+      return actor_role in ('manager', 'hr', 'admin');
+    end if;
+
     return actor_role in ('hr', 'admin');
   end if;
 

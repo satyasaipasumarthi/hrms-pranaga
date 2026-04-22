@@ -147,12 +147,12 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("payroll", { canView: true, dataScope: "own" }),
     grant("performance", { canView: true, canUpdate: true, dataScope: "team" }),
     grant("wall_of_fame", { canView: true, dataScope: "organization" }),
-    grant("kudos", { canView: true, canCreate: true, dataScope: "team" }),
+    grant("kudos", { canView: true, canCreate: true, dataScope: "organization" }),
   ],
   hr: [
     grant("dashboard", { canView: true, dataScope: "organization" }),
     grant("attendance", { canView: true, canCreate: true, canUpdate: true, dataScope: "organization" }),
-    grant("leave", { canView: true, canUpdate: true, canApprove: true, dataScope: "organization" }),
+    grant("leave", { canView: true, canCreate: true, canUpdate: true, canApprove: true, dataScope: "organization" }),
     grant("payroll", { canView: true, canUpdate: true, dataScope: "organization" }),
     grant("performance", { canView: true, canUpdate: true, dataScope: "organization" }),
     grant("employees", { canView: true, canUpdate: true, dataScope: "organization" }),
@@ -172,7 +172,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("access_control", { canView: true, canCreate: true, canUpdate: true, dataScope: "all" }),
     grant("wall_of_fame", { canView: true, dataScope: "all" }),
     grant("settings", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
-    grant("kudos", { canView: true, dataScope: "all" }),
+    grant("kudos", { canView: true, canCreate: true, dataScope: "all" }),
   ],
 };
 
