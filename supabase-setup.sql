@@ -218,6 +218,9 @@ create table if not exists public.attendance (
   date date not null,
   check_in timestamptz,
   check_out timestamptz,
+  is_paused boolean not null default false,
+  pause_start_time timestamptz,
+  total_paused_duration integer not null default 0,
   status text not null default 'Pending' check (status in ('Full Day', 'Half Day', 'Absent', 'Pending')),
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())

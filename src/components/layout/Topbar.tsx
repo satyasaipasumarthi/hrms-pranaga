@@ -1,3 +1,5 @@
+import GlowButton from "@/components/ui/GlowButton";
+import { useAttendanceActions } from "@/hooks/useAttendanceActions";
 import { Bell, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +8,8 @@ import { formatRoleLabel } from "@/lib/roles";
 const Topbar = () => {
   const [time, setTime] = useState(new Date());
   const { user } = useAuth();
+  const { canTrackOwnTime, checkedIn, handleCheckIn, handleCheckOut, handlePauseResume, isPaused, isTodayLocked } =
+    useAttendanceActions();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -31,6 +35,33 @@ const Topbar = () => {
           <span className="font-heading tracking-wider">
             {time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </span>
+        </div>
+
+        <div className="flex items-center justify-center gap-2">
+          <GlowButton
+            onClick={handleCheckIn}
+            disabled={!canTrackOwnTime || checkedIn || isTodayLocked}
+            variant="primary"
+            className="h-10 min-w-[6.75rem] px-4 py-0 text-xs whitespace-nowrap"
+          >
+            Check In
+          </GlowButton>
+          <GlowButton
+            onClick={handlePauseResume}
+            disabled={!canTrackOwnTime || !checkedIn}
+            variant="ghost"
+            className="h-10 min-w-[7.5rem] border border-primary/20 bg-accent/20 px-4 py-0 text-xs text-foreground whitespace-nowrap hover:bg-accent/40"
+          >
+            {isPaused ? "Resume" : "Pause"}
+          </GlowButton>
+          <GlowButton
+            onClick={handleCheckOut}
+            disabled={!canTrackOwnTime || !checkedIn}
+            variant="secondary"
+            className="h-10 min-w-[7.25rem] px-4 py-0 text-xs whitespace-nowrap"
+          >
+            Check Out
+          </GlowButton>
         </div>
 
         <button className="relative p-2 rounded-lg hover:bg-accent transition-colors">

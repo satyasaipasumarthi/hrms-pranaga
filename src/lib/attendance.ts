@@ -56,7 +56,7 @@ export const calculateAttendanceStatus = (
 export const calculateDurationMinutes = (
   startValue: string | null,
   endValue: string | null,
-  options?: { useCurrentTimeIfOpen?: boolean; now?: Date },
+  options?: { useCurrentTimeIfOpen?: boolean; now?: Date; pausedDurationSeconds?: number },
 ) => {
   if (!startValue) {
     return 0;
@@ -73,7 +73,8 @@ export const calculateDurationMinutes = (
     return 0;
   }
 
-  return Math.max(Math.round((end.getTime() - start.getTime()) / 60000), 0);
+  const pausedDurationMilliseconds = Math.max(Math.round(options?.pausedDurationSeconds ?? 0), 0) * 1000;
+  return Math.max(Math.round((end.getTime() - start.getTime() - pausedDurationMilliseconds) / 60000), 0);
 };
 
 export const formatWorkedDuration = (totalMinutes: number) => {

@@ -46,6 +46,15 @@ describe("attendance thresholds", () => {
     expect(calculateAttendanceStatus(fullDayMinutes)).toBe("Full Day");
   });
 
+  it("excludes paused duration from final worked hours", () => {
+    const workedMinutes = calculateDurationMinutes("2026-04-22T10:30:00.000Z", "2026-04-22T14:30:00.000Z", {
+      pausedDurationSeconds: 20 * 60,
+    });
+
+    expect(formatWorkedDuration(workedMinutes)).toBe("3h 40m");
+    expect(calculateAttendanceStatus(workedMinutes)).toBe("Half Day");
+  });
+
   it("uses the India business day instead of raw UTC date boundaries", () => {
     expect(getBusinessDateKey("2026-04-15T20:00:00.000Z")).toBe("2026-04-16");
     expect(getBusinessDateKey("2026-04-16T18:29:59.000Z")).toBe("2026-04-16");

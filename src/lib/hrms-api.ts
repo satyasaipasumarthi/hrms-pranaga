@@ -82,6 +82,9 @@ export interface AttendanceRecord {
   totalMinutes: number;
   totalHours: string;
   status: string;
+  isPaused: boolean;
+  pauseStartIso: string | null;
+  totalPausedDurationSeconds: number;
 }
 
 type AttendanceSchemaMode = "current" | "legacy";
@@ -221,6 +224,16 @@ const getTodayDateKey = () => getBusinessDateKey();
 const getDayAlreadyRecordedMessage = () =>
   "Today's attendance has already been recorded. A new entry can be created tomorrow.";
 
+const getPauseFieldsMissingMessage = () =>
+  "Pause / Resume needs the new attendance pause fields in Supabase. Run `supabase/attendance-pause-fields.sql` first.";
+
+const CURRENT_ATTENDANCE_BASE_SELECT = "id, user_id, date, check_in, check_out, status, created_at";
+const CURRENT_ATTENDANCE_PAUSE_SELECT = `${CURRENT_ATTENDANCE_BASE_SELECT}, is_paused, pause_start_time, total_paused_duration`;
+const LEGACY_ATTENDANCE_BASE_SELECT =
+  "id, user_id, login_time, logout_time, duration_minutes, shift_minutes, attendance_status, created_at";
+const LEGACY_ATTENDANCE_PAUSE_SELECT =
+  `${LEGACY_ATTENDANCE_BASE_SELECT}, is_paused, pause_start_time, total_paused_duration`;
+
 const closeStaleCurrentAttendanceRows = async (userId: string, date: string) => {
   const staleRowsResponse = await supabase
     .from("attendance")
@@ -300,6 +313,57 @@ type AggregatedAttendanceRow = {
   checkOutIso: string | null;
   totalMinutes: number;
   status: string;
+  isPaused: boolean;
+  pauseStartIso: string | null;
+  totalPausedDurationSeconds: number;
+};
+
+type AttendancePauseMetadata = {
+  isPaused: boolean;
+  pauseStartIso: string | null;
+  totalPausedDurationSeconds: number;
+};
+
+const getPauseMetadata = (row: Record<string, unknown>): AttendancePauseMetadata => ({
+  isPaused: Boolean(row.is_paused),
+  pauseStartIso: row.pause_start_time ? String(row.pause_start_time) : null,
+  totalPausedDurationSeconds: Math.max(Number(row.total_paused_duration ?? 0), 0),
+});
+
+const withDefaultPauseMetadata = (rows: Array<Record<string, unknown>>) =>
+  rows.map((row) => ({
+    ...row,
+    is_paused: row.is_paused ?? false,
+    pause_start_time: row.pause_start_time ?? null,
+    total_paused_duration: row.total_paused_duration ?? 0,
+  }));
+
+const getOngoingPauseDurationSeconds = (pauseStartIso: string | null, nowValue: string | Date) => {
+  if (!pauseStartIso) {
+    return 0;
+  }
+
+  const pauseStartTime = getParsedTimestamp(pauseStartIso);
+  const nowTimestamp =
+    nowValue instanceof Date ? nowValue.getTime() : getParsedTimestamp(nowValue);
+
+  if (pauseStartTime === null || nowTimestamp === null) {
+    return 0;
+  }
+
+  return Math.max(Math.round((nowTimestamp - pauseStartTime) / 1000), 0);
+};
+
+const getEffectivePausedDurationSeconds = (
+  pauseMetadata: AttendancePauseMetadata,
+  nowValue?: string | Date,
+) => {
+  const baseDuration = Math.max(Math.round(pauseMetadata.totalPausedDurationSeconds), 0);
+  if (!pauseMetadata.isPaused || !pauseMetadata.pauseStartIso || !nowValue) {
+    return baseDuration;
+  }
+
+  return baseDuration + getOngoingPauseDurationSeconds(pauseMetadata.pauseStartIso, nowValue);
 };
 
 const getEarlierIso = (left: string | null, right: string | null) => {
@@ -339,6 +403,7 @@ const getDifferenceBasedAttendance = ({
   checkInIso,
   checkOutIso,
   createdAt,
+  pauseMetadata,
 }: {
   id: string;
   userId: string;
@@ -346,9 +411,14 @@ const getDifferenceBasedAttendance = ({
   checkInIso: string | null;
   checkOutIso: string | null;
   createdAt: string | null;
+  pauseMetadata: AttendancePauseMetadata;
 }) => {
   const hasOpenShift = Boolean(checkInIso && !checkOutIso);
-  const totalMinutes = hasOpenShift ? 0 : calculateDurationMinutes(checkInIso, checkOutIso);
+  const totalMinutes = hasOpenShift
+    ? 0
+    : calculateDurationMinutes(checkInIso, checkOutIso, {
+        pausedDurationSeconds: pauseMetadata.totalPausedDurationSeconds,
+      });
 
   return {
     id,
@@ -360,17 +430,24 @@ const getDifferenceBasedAttendance = ({
     status: calculateAttendanceStatus(totalMinutes, { isOpenShift: hasOpenShift }),
     createdAt,
     isOpenShift: hasOpenShift,
+    isPaused: hasOpenShift ? pauseMetadata.isPaused : false,
+    pauseStartIso: hasOpenShift ? pauseMetadata.pauseStartIso : null,
+    totalPausedDurationSeconds: pauseMetadata.totalPausedDurationSeconds,
   };
 };
 
 const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): AggregatedAttendanceRow[] => {
-  const groupedRows = new Map<string, AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }>();
+  const groupedRows = new Map<
+    string,
+    AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }
+  >();
 
   rows.forEach((row) => {
     const userId = String(row.user_id);
     const date = String(row.date);
     const checkInIso = row.check_in ? String(row.check_in) : null;
     const checkOutIso = row.check_out ? String(row.check_out) : null;
+    const pauseMetadata = getPauseMetadata(row);
     const key = `${userId}:${date}`;
     const existing = groupedRows.get(key);
     const createdAt = row.created_at ? String(row.created_at) : null;
@@ -385,6 +462,7 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
           checkInIso,
           checkOutIso,
           createdAt,
+          pauseMetadata,
         }),
       );
       return;
@@ -392,6 +470,13 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
 
     const mergedCheckIn = getEarlierIso(existing.checkInIso, checkInIso);
     const mergedCheckOut = existing.isOpenShift || Boolean(checkInIso && !checkOutIso) ? null : getLaterIso(existing.checkOutIso, checkOutIso);
+    const mergedPauseMetadata: AttendancePauseMetadata = {
+      isPaused: existing.isPaused || pauseMetadata.isPaused,
+      pauseStartIso: pauseMetadata.isPaused ? pauseMetadata.pauseStartIso : existing.pauseStartIso,
+      totalPausedDurationSeconds:
+        Math.max(Math.round(existing.totalPausedDurationSeconds), 0) +
+        Math.max(Math.round(pauseMetadata.totalPausedDurationSeconds), 0),
+    };
 
     groupedRows.set(
       key,
@@ -407,6 +492,7 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
               ? existing.createdAt
               : createdAt)
           : existing.createdAt ?? createdAt,
+        pauseMetadata: mergedPauseMetadata,
       }),
     );
   });
@@ -421,12 +507,16 @@ const aggregateCurrentAttendanceRows = (rows: Array<Record<string, unknown>>): A
 };
 
 const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): AggregatedAttendanceRow[] => {
-  const groupedRows = new Map<string, AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }>();
+  const groupedRows = new Map<
+    string,
+    AggregatedAttendanceRow & { createdAt: string | null; isOpenShift: boolean }
+  >();
 
   rows.forEach((row) => {
     const userId = String(row.user_id);
     const loginTime = row.login_time ? String(row.login_time) : null;
     const logoutTime = row.logout_time ? String(row.logout_time) : null;
+    const pauseMetadata = getPauseMetadata(row);
     const date = getBusinessDateKey(loginTime ?? (row.created_at ? String(row.created_at) : new Date()));
     const key = `${userId}:${date}`;
     const existing = groupedRows.get(key);
@@ -442,6 +532,7 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
           checkInIso: loginTime,
           checkOutIso: logoutTime,
           createdAt,
+          pauseMetadata,
         }),
       );
       return;
@@ -449,6 +540,13 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
 
     const mergedCheckIn = getEarlierIso(existing.checkInIso, loginTime);
     const mergedCheckOut = existing.isOpenShift || Boolean(loginTime && !logoutTime) ? null : getLaterIso(existing.checkOutIso, logoutTime);
+    const mergedPauseMetadata: AttendancePauseMetadata = {
+      isPaused: existing.isPaused || pauseMetadata.isPaused,
+      pauseStartIso: pauseMetadata.isPaused ? pauseMetadata.pauseStartIso : existing.pauseStartIso,
+      totalPausedDurationSeconds:
+        Math.max(Math.round(existing.totalPausedDurationSeconds), 0) +
+        Math.max(Math.round(pauseMetadata.totalPausedDurationSeconds), 0),
+    };
 
     groupedRows.set(
       key,
@@ -464,6 +562,7 @@ const aggregateLegacyAttendanceRows = (rows: Array<Record<string, unknown>>): Ag
               ? existing.createdAt
               : createdAt)
           : existing.createdAt ?? createdAt,
+        pauseMetadata: mergedPauseMetadata,
       }),
     );
   });
@@ -830,7 +929,7 @@ const fetchAttendanceRows = async (
 ): Promise<{ mode: AttendanceSchemaMode; rows: Array<Record<string, unknown>> }> => {
   let currentSchemaQuery = supabase
     .from("attendance")
-    .select("id, user_id, date, check_in, check_out, status, created_at")
+    .select(CURRENT_ATTENDANCE_PAUSE_SELECT)
     .order("date", { ascending: false });
 
   if (permission.dataScope === "own") {
@@ -841,13 +940,41 @@ const fetchAttendanceRows = async (
   if (!currentSchemaResponse.error) {
     return {
       mode: "current",
-      rows: (currentSchemaResponse.data ?? []) as Array<Record<string, unknown>>,
+      rows: withDefaultPauseMetadata((currentSchemaResponse.data ?? []) as Array<Record<string, unknown>>),
     };
+  }
+
+  let currentSchemaFallbackQuery = supabase
+    .from("attendance")
+    .select(CURRENT_ATTENDANCE_BASE_SELECT)
+    .order("date", { ascending: false });
+
+  if (permission.dataScope === "own") {
+    currentSchemaFallbackQuery = currentSchemaFallbackQuery.eq("user_id", user.id);
+  }
+
+  const currentSchemaFallbackResponse = isMissingResourceError(currentSchemaResponse.error)
+    ? await currentSchemaFallbackQuery
+    : null;
+
+  if (currentSchemaFallbackResponse && !currentSchemaFallbackResponse.error) {
+    return {
+      mode: "current",
+      rows: withDefaultPauseMetadata((currentSchemaFallbackResponse.data ?? []) as Array<Record<string, unknown>>),
+    };
+  }
+
+  if (currentSchemaFallbackResponse?.error && !isMissingResourceError(currentSchemaFallbackResponse.error)) {
+    throw currentSchemaFallbackResponse.error;
+  }
+
+  if (!isMissingResourceError(currentSchemaResponse.error)) {
+    throw currentSchemaResponse.error;
   }
 
   let legacySchemaQuery = supabase
     .from("attendance")
-    .select("id, user_id, login_time, logout_time, duration_minutes, shift_minutes, attendance_status, created_at")
+    .select(LEGACY_ATTENDANCE_PAUSE_SELECT)
     .order("login_time", { ascending: false });
 
   if (permission.dataScope === "own") {
@@ -855,21 +982,47 @@ const fetchAttendanceRows = async (
   }
 
   const legacySchemaResponse = await legacySchemaQuery;
-  if (legacySchemaResponse.error) {
-    if (
-      isMissingResourceError(currentSchemaResponse.error) &&
-      isMissingResourceError(legacySchemaResponse.error)
-    ) {
-      return { mode: "legacy", rows: [] };
-    }
-
-    throw legacySchemaResponse.error;
+  if (!legacySchemaResponse.error) {
+    return {
+      mode: "legacy",
+      rows: withDefaultPauseMetadata((legacySchemaResponse.data ?? []) as Array<Record<string, unknown>>),
+    };
   }
 
-  return {
-    mode: "legacy",
-    rows: (legacySchemaResponse.data ?? []) as Array<Record<string, unknown>>,
-  };
+  let legacySchemaFallbackQuery = supabase
+    .from("attendance")
+    .select(LEGACY_ATTENDANCE_BASE_SELECT)
+    .order("login_time", { ascending: false });
+
+  if (permission.dataScope === "own") {
+    legacySchemaFallbackQuery = legacySchemaFallbackQuery.eq("user_id", user.id);
+  }
+
+  const legacySchemaFallbackResponse = isMissingResourceError(legacySchemaResponse.error)
+    ? await legacySchemaFallbackQuery
+    : null;
+
+  if (legacySchemaFallbackResponse && !legacySchemaFallbackResponse.error) {
+    return {
+      mode: "legacy",
+      rows: withDefaultPauseMetadata((legacySchemaFallbackResponse.data ?? []) as Array<Record<string, unknown>>),
+    };
+  }
+
+  if (legacySchemaFallbackResponse?.error && !isMissingResourceError(legacySchemaFallbackResponse.error)) {
+    throw legacySchemaFallbackResponse.error;
+  }
+
+  if (
+    isMissingResourceError(currentSchemaResponse.error) &&
+    (!currentSchemaFallbackResponse || isMissingResourceError(currentSchemaFallbackResponse.error)) &&
+    isMissingResourceError(legacySchemaResponse.error) &&
+    (!legacySchemaFallbackResponse || isMissingResourceError(legacySchemaFallbackResponse.error))
+  ) {
+    return { mode: "legacy", rows: [] };
+  }
+
+  throw legacySchemaResponse.error;
 };
 
 export const fetchAttendanceRecords = async (user: AuthUser, permissionMap: PermissionMap): Promise<AttendanceRecord[]> => {
@@ -906,6 +1059,9 @@ export const fetchAttendanceRecords = async (user: AuthUser, permissionMap: Perm
       totalMinutes: row.totalMinutes,
       totalHours: formatWorkedDuration(row.totalMinutes),
       status: row.status,
+      isPaused: row.isPaused,
+      pauseStartIso: row.pauseStartIso,
+      totalPausedDurationSeconds: row.totalPausedDurationSeconds,
     };
   });
 };
@@ -1019,16 +1175,256 @@ export const checkInCurrentUser = async (user: AuthUser): Promise<string> => {
   return nowIso;
 };
 
-export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
-  const currentAttendanceResponse = await supabase
+const fetchCurrentOpenAttendanceRows = async (userId: string, date: string) => {
+  const withPauseResponse = await supabase
     .from("attendance")
-    .select("id, check_in, check_out, created_at")
-    .eq("user_id", user.id)
+    .select("id, check_in, check_out, created_at, is_paused, pause_start_time, total_paused_duration")
+    .eq("user_id", userId)
     .eq("date", date)
     .order("created_at", { ascending: true });
 
-  if (!currentAttendanceResponse.error) {
-    const currentRows = currentAttendanceResponse.data ?? [];
+  if (!withPauseResponse.error) {
+    return {
+      mode: "current" as const,
+      rows: withDefaultPauseMetadata((withPauseResponse.data ?? []) as Array<Record<string, unknown>>),
+      pauseColumnsAvailable: true,
+    };
+  }
+
+  if (!isMissingResourceError(withPauseResponse.error)) {
+    throw withPauseResponse.error;
+  }
+
+  const fallbackResponse = await supabase
+    .from("attendance")
+    .select("id, check_in, check_out, created_at")
+    .eq("user_id", userId)
+    .eq("date", date)
+    .order("created_at", { ascending: true });
+
+  if (!fallbackResponse.error) {
+    return {
+      mode: "current" as const,
+      rows: withDefaultPauseMetadata((fallbackResponse.data ?? []) as Array<Record<string, unknown>>),
+      pauseColumnsAvailable: false,
+    };
+  }
+
+  if (!isMissingResourceError(fallbackResponse.error)) {
+    throw fallbackResponse.error;
+  }
+
+  return null;
+};
+
+const fetchLegacyOpenAttendanceRow = async (userId: string, startIso: string, endIso: string) => {
+  const withPauseResponse = await supabase
+    .from("attendance")
+    .select("id, login_time, logout_time, is_paused, pause_start_time, total_paused_duration")
+    .eq("user_id", userId)
+    .gte("login_time", startIso)
+    .lt("login_time", endIso)
+    .is("logout_time", null)
+    .order("login_time", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!withPauseResponse.error) {
+    return {
+      row: withPauseResponse.data
+        ? withDefaultPauseMetadata([withPauseResponse.data as Record<string, unknown>])[0]
+        : null,
+      pauseColumnsAvailable: true,
+    };
+  }
+
+  if (!isMissingResourceError(withPauseResponse.error)) {
+    throw withPauseResponse.error;
+  }
+
+  const fallbackResponse = await supabase
+    .from("attendance")
+    .select("id, login_time, logout_time")
+    .eq("user_id", userId)
+    .gte("login_time", startIso)
+    .lt("login_time", endIso)
+    .is("logout_time", null)
+    .order("login_time", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!fallbackResponse.error) {
+    return {
+      row: fallbackResponse.data
+        ? withDefaultPauseMetadata([fallbackResponse.data as Record<string, unknown>])[0]
+        : null,
+      pauseColumnsAvailable: false,
+    };
+  }
+
+  if (!isMissingResourceError(fallbackResponse.error)) {
+    throw fallbackResponse.error;
+  }
+
+  return null;
+};
+
+export const pauseCurrentUser = async (user: AuthUser, date: string) => {
+  const currentOpenAttendance = await fetchCurrentOpenAttendanceRows(user.id, date);
+
+  if (currentOpenAttendance) {
+    if (!currentOpenAttendance.pauseColumnsAvailable) {
+      throw new Error(getPauseFieldsMissingMessage());
+    }
+
+    const openRow = currentOpenAttendance.rows.find((row) => !row.check_out);
+    if (!openRow?.id) {
+      throw new Error("No active attendance record exists for today.");
+    }
+
+    if (Boolean(openRow.is_paused)) {
+      return;
+    }
+
+    const pauseStartIso = new Date().toISOString();
+    const { error } = await supabase
+      .from("attendance")
+      .update({
+        is_paused: true,
+        pause_start_time: pauseStartIso,
+      })
+      .eq("id", String(openRow.id))
+      .eq("user_id", user.id);
+
+    if (error) {
+      throw error;
+    }
+
+    return;
+  }
+
+  const { startIso, endIso } = getBusinessDateRange(date);
+  const legacyOpenAttendance = await fetchLegacyOpenAttendanceRow(user.id, startIso, endIso);
+
+  if (!legacyOpenAttendance) {
+    throw new Error("No active attendance record exists for today.");
+  }
+
+  if (!legacyOpenAttendance.pauseColumnsAvailable) {
+    throw new Error(getPauseFieldsMissingMessage());
+  }
+
+  if (!legacyOpenAttendance.row?.id) {
+    throw new Error("No active attendance record exists for today.");
+  }
+
+  if (Boolean(legacyOpenAttendance.row.is_paused)) {
+    return;
+  }
+
+  const pauseStartIso = new Date().toISOString();
+  const { error } = await supabase
+    .from("attendance")
+    .update({
+      is_paused: true,
+      pause_start_time: pauseStartIso,
+    })
+    .eq("id", String(legacyOpenAttendance.row.id))
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw error;
+  }
+};
+
+export const resumeCurrentUser = async (user: AuthUser, date: string) => {
+  const now = new Date();
+  const currentOpenAttendance = await fetchCurrentOpenAttendanceRows(user.id, date);
+
+  if (currentOpenAttendance) {
+    if (!currentOpenAttendance.pauseColumnsAvailable) {
+      throw new Error(getPauseFieldsMissingMessage());
+    }
+
+    const openRow = currentOpenAttendance.rows.find((row) => !row.check_out);
+    if (!openRow?.id) {
+      throw new Error("No active attendance record exists for today.");
+    }
+
+    if (!Boolean(openRow.is_paused)) {
+      return;
+    }
+
+    const resumedPausedDurationSeconds =
+      Math.max(Number(openRow.total_paused_duration ?? 0), 0) +
+      getOngoingPauseDurationSeconds(
+        openRow.pause_start_time ? String(openRow.pause_start_time) : null,
+        now,
+      );
+
+    const { error } = await supabase
+      .from("attendance")
+      .update({
+        is_paused: false,
+        pause_start_time: null,
+        total_paused_duration: resumedPausedDurationSeconds,
+      })
+      .eq("id", String(openRow.id))
+      .eq("user_id", user.id);
+
+    if (error) {
+      throw error;
+    }
+
+    return;
+  }
+
+  const { startIso, endIso } = getBusinessDateRange(date);
+  const legacyOpenAttendance = await fetchLegacyOpenAttendanceRow(user.id, startIso, endIso);
+
+  if (!legacyOpenAttendance) {
+    throw new Error("No active attendance record exists for today.");
+  }
+
+  if (!legacyOpenAttendance.pauseColumnsAvailable) {
+    throw new Error(getPauseFieldsMissingMessage());
+  }
+
+  if (!legacyOpenAttendance.row?.id) {
+    throw new Error("No active attendance record exists for today.");
+  }
+
+  if (!Boolean(legacyOpenAttendance.row.is_paused)) {
+    return;
+  }
+
+  const resumedPausedDurationSeconds =
+    Math.max(Number(legacyOpenAttendance.row.total_paused_duration ?? 0), 0) +
+    getOngoingPauseDurationSeconds(
+      legacyOpenAttendance.row.pause_start_time ? String(legacyOpenAttendance.row.pause_start_time) : null,
+      now,
+    );
+
+  const { error } = await supabase
+    .from("attendance")
+    .update({
+      is_paused: false,
+      pause_start_time: null,
+      total_paused_duration: resumedPausedDurationSeconds,
+    })
+    .eq("id", String(legacyOpenAttendance.row.id))
+    .eq("user_id", user.id);
+
+  if (error) {
+    throw error;
+  }
+};
+
+export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
+  const currentOpenAttendance = await fetchCurrentOpenAttendanceRows(user.id, date);
+
+  if (currentOpenAttendance) {
+    const currentRows = currentOpenAttendance.rows;
     const openRows = currentRows.filter((row) => !row.check_out);
     const currentRow = openRows[0];
 
@@ -1055,16 +1451,31 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
       },
       null,
     );
-    const durationMinutes = calculateDurationMinutes(earliestCheckIn ?? String(currentRow.check_in ?? ""), nowIso);
+    const pausedDurationSeconds = openRows.reduce((total, row) => {
+      const pauseMetadata = getPauseMetadata(row);
+      return total + getEffectivePausedDurationSeconds(pauseMetadata, nowIso);
+    }, 0);
+    const durationMinutes = calculateDurationMinutes(
+      earliestCheckIn ?? String(currentRow.check_in ?? ""),
+      nowIso,
+      { pausedDurationSeconds },
+    );
     const status = calculateAttendanceStatus(durationMinutes);
     const idsToClose = openRows.map((row) => String(row.id));
+    const currentUpdatePayload: Record<string, unknown> = {
+      check_out: nowIso,
+      status,
+    };
+
+    if (currentOpenAttendance.pauseColumnsAvailable) {
+      currentUpdatePayload.is_paused = false;
+      currentUpdatePayload.pause_start_time = null;
+      currentUpdatePayload.total_paused_duration = pausedDurationSeconds;
+    }
 
     const { error } = await supabase
       .from("attendance")
-      .update({
-        check_out: nowIso,
-        status,
-      })
+      .update(currentUpdatePayload)
       .in("id", idsToClose)
       .eq("user_id", user.id);
 
@@ -1075,45 +1486,38 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
     return;
   }
 
-  if (!isMissingResourceError(currentAttendanceResponse.error)) {
-    throw currentAttendanceResponse.error;
-  }
-
   const { startIso, endIso } = getBusinessDateRange(date);
-  const legacyOpenShiftResponse = await supabase
-    .from("attendance")
-    .select("id, login_time")
-    .eq("user_id", user.id)
-    .gte("login_time", startIso)
-    .lt("login_time", endIso)
-    .is("logout_time", null)
-    .order("login_time", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const legacyOpenAttendance = await fetchLegacyOpenAttendanceRow(user.id, startIso, endIso);
 
-  if (legacyOpenShiftResponse.error && !isMissingResourceError(legacyOpenShiftResponse.error)) {
-    throw legacyOpenShiftResponse.error;
-  }
-
-  if (!legacyOpenShiftResponse.data?.id) {
+  if (!legacyOpenAttendance?.row?.id) {
     throw new Error("No active attendance record exists for today.");
   }
 
   const now = new Date();
-  const loginTime = legacyOpenShiftResponse.data.login_time
-    ? parseAttendanceDateValue(String(legacyOpenShiftResponse.data.login_time))
+  const loginTime = legacyOpenAttendance.row.login_time
+    ? parseAttendanceDateValue(String(legacyOpenAttendance.row.login_time))
     : null;
-  const durationMinutes = loginTime ? Math.max(Math.round((now.getTime() - loginTime.getTime()) / 60000), 0) : 0;
+  const pausedDurationSeconds = getEffectivePausedDurationSeconds(getPauseMetadata(legacyOpenAttendance.row), now);
+  const durationMinutes = loginTime
+    ? calculateDurationMinutes(loginTime.toISOString(), now.toISOString(), { pausedDurationSeconds })
+    : 0;
   const status = calculateAttendanceStatus(durationMinutes);
+  const legacyUpdatePayload: Record<string, unknown> = {
+    logout_time: now.toISOString(),
+    duration_minutes: durationMinutes,
+    attendance_status: status,
+  };
+
+  if (legacyOpenAttendance.pauseColumnsAvailable) {
+    legacyUpdatePayload.is_paused = false;
+    legacyUpdatePayload.pause_start_time = null;
+    legacyUpdatePayload.total_paused_duration = pausedDurationSeconds;
+  }
 
   const legacyUpdateResponse = await supabase
     .from("attendance")
-    .update({
-      logout_time: now.toISOString(),
-      duration_minutes: durationMinutes,
-      attendance_status: status,
-    })
-    .eq("id", legacyOpenShiftResponse.data.id)
+    .update(legacyUpdatePayload)
+    .eq("id", legacyOpenAttendance.row.id)
     .eq("user_id", user.id);
 
   if (legacyUpdateResponse.error) {
