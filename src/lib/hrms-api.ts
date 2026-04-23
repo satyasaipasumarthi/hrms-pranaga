@@ -155,7 +155,7 @@ export interface KudosRecord {
 }
 
 const PROFILE_SELECT_WITH_MANAGER =
-  "id, name, email, role, department, manager_id, reporting_manager_id, reporting_manager:reporting_managers(name)";
+  "id, name, email, role, department, manager_id, reporting_manager_id, reporting_manager:reporting_managers!profiles_reporting_manager_id_fkey(name)";
 const PROFILE_SELECT_FALLBACK = "id, name, email, role, department";
 
 const scopeRank: Record<DataScope, number> = {
@@ -649,8 +649,11 @@ const toProfileRecord = (row: Record<string, unknown>): ProfileRecord => ({
   department: row.department ? String(row.department) : null,
   manager_id: row.manager_id ? String(row.manager_id) : null,
   reporting_manager_id: row.reporting_manager_id ? String(row.reporting_manager_id) : null,
-  reporting_manager_name:
-    row.reporting_manager && typeof row.reporting_manager === "object" && "name" in (row.reporting_manager as Record<string, unknown>)
+  reporting_manager_name: Array.isArray(row.reporting_manager)
+    ? (row.reporting_manager[0] && typeof row.reporting_manager[0] === "object" && "name" in (row.reporting_manager[0] as Record<string, unknown>)
+        ? ((row.reporting_manager[0] as Record<string, unknown>).name ? String((row.reporting_manager[0] as Record<string, unknown>).name) : null)
+        : null)
+    : row.reporting_manager && typeof row.reporting_manager === "object" && "name" in (row.reporting_manager as Record<string, unknown>)
       ? ((row.reporting_manager as Record<string, unknown>).name ? String((row.reporting_manager as Record<string, unknown>).name) : null)
       : null,
 });
