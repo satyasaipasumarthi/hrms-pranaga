@@ -1996,3 +1996,23 @@ export const inviteUserWithRole = async (payload: AccessInvitePayload) => {
 
   return data as { success: boolean; message: string };
 };
+
+export const deleteUserAccess = async (payload: {
+  accessGrantId?: string | null;
+  email: string;
+  authUserId: string | null;
+}) => {
+  const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+    body: {
+      accessGrantId: payload.accessGrantId ?? null,
+      email: payload.email.trim().toLowerCase(),
+      authUserId: payload.authUserId,
+    },
+  });
+
+  if (error) {
+    throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to delete the user."));
+  }
+
+  return data as { success: boolean; message: string };
+};

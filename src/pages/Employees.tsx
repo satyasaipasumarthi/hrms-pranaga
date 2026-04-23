@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import PageWrapper from "@/components/ui/PageWrapper";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchVisibleEmployees, type ProfileRecord } from "@/lib/hrms-api";
+import { deleteUserAccess, fetchVisibleEmployees, type ProfileRecord } from "@/lib/hrms-api";
 import { canManageEmployees } from "@/lib/permissions";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 
@@ -10,6 +11,8 @@ const Employees = () => {
   const { user, permissions } = useAuth();
   const [employees, setEmployees] = useState<ProfileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletingEmployeeId, setDeletingEmployeeId] = useState<string | null>(null);
+  const canDeleteUsers = user?.role === "admin";
 
   useEffect(() => {
     const loadEmployees = async () => {
@@ -45,6 +48,56 @@ const Employees = () => {
     );
   }
 
+  const loadEmployees = async () => {
+    setIsLoading(true);
+
+    try {
+      const rows = await fetchVisibleEmployees(user, permissions);
+      setEmployees(rows);
+    } catch (error) {
+      console.error("Failed to load employees:", error);
+      setEmployees([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDeleteEmployee = async (employee: ProfileRecord) => {
+    const confirmed = window.confirm(
+      `Delete ${employee.name} from the portal?\n\nThis will remove the user's portal access, auth account, and related portal records.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingEmployeeId(employee.id);
+
+    try {
+      const response = await deleteUserAccess({
+        accessGrantId: null,
+        email: employee.email,
+        authUserId: employee.id,
+      });
+
+      await loadEmployees();
+
+      toast({
+        title: "User deleted",
+        description: response?.message ?? `${employee.name} has been removed from the portal.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete employee:", error);
+      toast({
+        title: "Delete failed",
+        description: error instanceof Error ? error.message : "The user could not be deleted.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingEmployeeId(null);
+    }
+  };
+
   return (
     <PageWrapper label="PERSONNEL_DIRECTORY" title="Team Overview">
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6">
@@ -62,6 +115,9 @@ const Employees = () => {
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">DEPARTMENT</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">REPORTING_MANAGER</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">ROLE</th>
+                  {canDeleteUsers && (
+                    <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">ACTION</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -100,12 +156,28 @@ const Employees = () => {
                           {normalizedRole ? formatRoleLabel(normalizedRole) : employee.role}
                         </span>
                       </td>
+                      {canDeleteUsers && (
+                        <td className="py-3 px-4">
+                          <button
+                            type="button"
+                            onClick={() => void handleDeleteEmployee(employee)}
+                            disabled={deletingEmployeeId === employee.id || employee.id === user.id}
+                            className="inline-flex h-9 min-w-[8.75rem] items-center justify-center rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-[11px] font-heading uppercase tracking-[0.16em] text-destructive transition-colors hover:bg-destructive/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {deletingEmployeeId === employee.id
+                              ? "Deleting..."
+                              : employee.id === user.id
+                                ? "Current Admin"
+                                : "Delete User"}
+                          </button>
+                        </td>
+                      )}
                     </motion.tr>
                   );
                 })}
                 {!employees.length && (
                   <tr>
-                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
+                    <td colSpan={canDeleteUsers ? 6 : 5} className="py-12 text-center text-muted-foreground">
                       No employee records are visible for your current access scope.
                     </td>
                   </tr>
