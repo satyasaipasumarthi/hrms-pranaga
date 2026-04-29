@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, createElement, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { getBusinessDateKey, parseAttendanceDateValue } from "@/lib/attendance";
@@ -23,7 +23,24 @@ const emitAttendanceSync = (source: string) => {
   window.dispatchEvent(new CustomEvent(ATTENDANCE_SYNC_EVENT, { detail: { source } }));
 };
 
-export const useAttendanceActions = () => {
+interface AttendanceActionsValue {
+  attendanceLog: AttendanceRecord[];
+  canTrackOwnTime: boolean;
+  checkInTime: Date | null;
+  checkedIn: boolean;
+  elapsed: string;
+  handleCheckIn: () => Promise<void>;
+  handleCheckOut: () => Promise<void>;
+  handlePauseResume: () => Promise<void>;
+  isLoading: boolean;
+  isPaused: boolean;
+  isTodayLocked: boolean;
+  showEmployeeColumn: boolean;
+}
+
+const AttendanceActionsContext = createContext<AttendanceActionsValue | null>(null);
+
+const useAttendanceActionsState = (): AttendanceActionsValue => {
   const { user, permissions } = useAuth();
   const [checkedIn, setCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState<Date | null>(null);
@@ -273,4 +290,19 @@ export const useAttendanceActions = () => {
     isTodayLocked,
     showEmployeeColumn,
   };
+};
+
+export const AttendanceActionsProvider = ({ children }: { children: ReactNode }) => {
+  const value = useAttendanceActionsState();
+  return createElement(AttendanceActionsContext.Provider, { value }, children);
+};
+
+export const useAttendanceActions = () => {
+  const context = useContext(AttendanceActionsContext);
+
+  if (!context) {
+    throw new Error("useAttendanceActions must be used within AttendanceActionsProvider.");
+  }
+
+  return context;
 };

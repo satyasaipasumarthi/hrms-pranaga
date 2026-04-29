@@ -1,22 +1,16 @@
 import GlowButton from "@/components/ui/GlowButton";
 import { useAttendanceActions } from "@/hooks/useAttendanceActions";
 import { Bell, Clock } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRoleLabel } from "@/lib/roles";
 
 const Topbar = () => {
-  const [time, setTime] = useState(new Date());
   const { user } = useAuth();
-  const { canTrackOwnTime, checkedIn, handleCheckIn, handleCheckOut, handlePauseResume, isPaused, isTodayLocked } =
+  const { canTrackOwnTime, checkedIn, elapsed, handleCheckIn, handleCheckOut, handlePauseResume, isPaused, isTodayLocked } =
     useAttendanceActions();
 
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const hour = time.getHours();
+  const currentTime = new Date();
+  const hour = currentTime.getHours();
   const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
   const roleBadge = user?.role ? formatRoleLabel(user.role) : "Employee";
 
@@ -32,9 +26,7 @@ const Topbar = () => {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Clock className="w-4 h-4" />
-          <span className="font-heading tracking-wider">
-            {time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-          </span>
+          <span className="font-heading tracking-wider">{elapsed}</span>
         </div>
 
         <div className="flex items-center justify-center gap-2">
