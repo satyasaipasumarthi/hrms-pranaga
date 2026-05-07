@@ -69,6 +69,16 @@ export interface AccessInvitePayload {
   reportingManagerId?: string | null;
 }
 
+export interface UserUpdatePayload {
+  userId: string;
+  currentEmail: string;
+  name: string;
+  email: string;
+  role: AssignableRole;
+  department: string;
+  reportingManagerId?: string | null;
+}
+
 export interface AttendanceRecord {
   id: string;
   userId: string;
@@ -2015,6 +2025,26 @@ export const deleteUserAccess = async (payload: {
 
   if (error) {
     throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to delete the user."));
+  }
+
+  return data as { success: boolean; message: string };
+};
+
+export const updateUserAccess = async (payload: UserUpdatePayload) => {
+  const { data, error } = await supabase.functions.invoke("admin-update-user", {
+    body: {
+      userId: payload.userId,
+      currentEmail: payload.currentEmail.trim().toLowerCase(),
+      name: payload.name.trim(),
+      email: payload.email.trim().toLowerCase(),
+      role: payload.role,
+      department: payload.department.trim() || "Operations",
+      reportingManagerId: payload.reportingManagerId ?? null,
+    },
+  });
+
+  if (error) {
+    throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to update the user."));
   }
 
   return data as { success: boolean; message: string };
