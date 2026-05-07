@@ -115,4 +115,29 @@
   .status-rejected {
     @apply text-red-400 bg-red-400/10 border-red-400/30;
   }
+
+  .attendance-date-strip {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.55) hsl(222 30% 12% / 0.95);
+  }
+
+  .attendance-date-strip::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .attendance-date-strip::-webkit-scrollbar-track {
+    background: hsl(222 30% 12% / 0.9);
+    border-radius: 9999px;
+    border: 1px solid hsl(222 20% 18% / 0.8);
+  }
+
+  .attendance-date-strip::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, hsl(18 100% 59% / 0.85), hsl(217 91% 60% / 0.8));
+    border-radius: 9999px;
+    border: 2px solid hsl(222 30% 12% / 0.9);
+  }
+
+  .attendance-date-strip::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, hsl(18 100% 59% / 1), hsl(217 91% 60% / 0.95));
+  }
 }
