@@ -149,6 +149,14 @@ Deno.serve(async (request) => {
     }
 
     if (targetAuthUserId) {
+      const { error: deleteUserCreationError } = await adminClient
+        .from("user_creation")
+        .delete()
+        .eq("user_id", targetAuthUserId);
+      if (deleteUserCreationError && !isMissingResourceError(deleteUserCreationError)) {
+        throw deleteUserCreationError;
+      }
+
       const { error: deleteAuthError } = await adminClient.auth.admin.deleteUser(targetAuthUserId);
       if (deleteAuthError && !isNotFoundError(deleteAuthError)) {
         throw deleteAuthError;

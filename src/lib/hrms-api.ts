@@ -1,4 +1,4 @@
-import type { PostgrestError } from "@supabase/supabase-js";
+import type { GoTrueAdminCustomProvidersApi, PostgrestError } from "@supabase/supabase-js";
 import {
   calculateAttendanceStatus,
   calculateDurationMinutes,
@@ -8,8 +8,9 @@ import {
   parseAttendanceDateValue,
 } from "@/lib/attendance";
 import { createPermissionMap, getModulePermission, resolvePermissionRows, type ModuleAccessRowRecord, type PermissionMap, type PermissionRowRecord } from "@/lib/permissions";
-import { normalizeRole, type AppModule, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
+import { normalizeRole, type AppModule, type AppRole, type AssignableRole, type AuthUser, type DataScope, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
+import { Payload } from "recharts/types/component/DefaultTooltipContent";
 
 export interface AccessContextResult {
   user: AuthUser;
@@ -67,6 +68,7 @@ export interface AccessInvitePayload {
   role: AssignableRole;
   department: string;
   reportingManagerId?: string | null;
+  team_id?: string | null;
 }
 
 export interface UserUpdatePayload {
@@ -77,6 +79,13 @@ export interface UserUpdatePayload {
   role: AssignableRole;
   department: string;
   reportingManagerId?: string | null;
+}
+
+export interface CreateTeamPayload {
+  teamname: string;
+  teamhead: string;
+  category: string;
+  subCategory?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -96,6 +105,234 @@ export interface AttendanceRecord {
   pauseStartIso: string | null;
   totalPausedDurationSeconds: number;
 }
+export interface TeamMemberRecord {
+  id: string;
+  name: string;
+  email: string;
+  designation: string | null;
+  department: string | null;
+}
+export type OnboardingEmployeeRecord = {
+  id: string;
+  employee_id: string | null;
+  first_name: string;
+  last_name: string;
+  designation: string | null;
+  personal_email: string | null;
+  department: string | null;
+  role_type: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+};
+
+export type OnboardingDemographicRecord = {
+  gender: string | null;
+  role_type: string | null;
+  blood_group: string | null;
+  department: string | null;
+};
+
+export const fetchOnboardingEmployees = async (): Promise<
+  OnboardingEmployeeRecord[]
+> => {
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .select(`
+      id,
+      employee_id,
+      first_name,
+      last_name,
+      designation,
+      personal_email,
+      department,
+      role_type,
+      phone,
+      date_of_birth
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch onboarding employees:", error);
+    throw error;
+  }
+
+  return data ?? [];
+};
+
+export const fetchOnboardingEmployeeById = async (
+  employeeId: string,
+): Promise<OnboardingEmployeeRecord | null> => {
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .select(`
+      id,
+      employee_id,
+      first_name,
+      last_name,
+      designation,
+      personal_email,
+      department,
+      role_type,
+      phone,
+      date_of_birth
+    `)
+    .eq("id", employeeId)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Failed to fetch onboarding employee by id:", error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const fetchOnboardingDemographics = async (): Promise<
+  OnboardingDemographicRecord[]
+> => {
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .select("gender, role_type, blood_group, department");
+
+  if (error) {
+    console.error("Failed to fetch onboarding demographics:", error);
+    throw error;
+  }
+
+  return data ?? [];
+};
+
+export interface DepartmentEmployee {
+  id: string;
+  employee_id: string | null;
+  first_name: string;
+  last_name: string;
+  designation: string | null;
+  personal_email: string | null;
+  department: string | null;
+  phone?: string | null;
+  role_type?: string | null;
+  date_of_birth?: string | null;
+}
+
+export type UpdateDepartmentEmployeePayload = Partial<
+  Pick<
+    DepartmentEmployee,
+    "employee_id" | "first_name" | "last_name" | "designation" | "personal_email" | "department" | "phone" | "role_type" | "date_of_birth"
+  >
+>;
+
+export interface UpdateOnboardingEmployeePayload {
+  employee_id?: string | null;
+  first_name?: string;
+  last_name?: string;
+  personal_email?: string | null;
+  phone?: string | null;
+  designation?: string | null;
+  department?: string | null;
+  role_type?: string | null;
+  date_of_birth?: string | null;
+}
+
+export const updateOnboardingEmployee = async (
+  employeeId: string,
+  updates: UpdateOnboardingEmployeePayload,
+): Promise<OnboardingEmployeeRecord> => {
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .update(updates)
+    .eq("id", employeeId)
+    .select(`
+      id,
+      employee_id,
+      first_name,
+      last_name,
+      designation,
+      personal_email,
+      department,
+      role_type,
+      phone,
+      date_of_birth
+    `)
+    .single();
+
+  if (error) {
+    console.error("Failed to update onboarding employee:", error);
+    throw error;
+  }
+
+  return data as OnboardingEmployeeRecord;
+};
+
+export const fetchEmployeesByDepartment = async (
+  department: string
+): Promise<DepartmentEmployee[]> => {
+  const selectedDepartment = department.trim();
+
+  if (!selectedDepartment) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .select(`
+      id,
+      employee_id,
+      first_name,
+      last_name,
+      designation,
+      personal_email,
+      department
+    `)
+    .eq("department", selectedDepartment)
+    .order("first_name", { ascending: true });
+console.log("Fetching employees for department:", selectedDepartment);
+console.log("Supabase response data:", data);
+  if (error) {
+    console.error("Error fetching employees by department:", error);
+    throw error;
+  }
+
+  return (data ?? []) as DepartmentEmployee[];
+};
+
+export const updateDepartmentEmployee = async (
+  employeeId: string,
+  updates: UpdateDepartmentEmployeePayload,
+): Promise<DepartmentEmployee> => {
+  const { data, error } = await supabase
+    .from("employee_onboarding")
+    .update(updates)
+    .eq("id", employeeId)
+    .select(
+      "id, employee_id, first_name, last_name, designation, personal_email, department",
+    )
+    .single();
+
+  if (error) {
+    console.error("Failed to update onboarding employee:", error);
+    throw error;
+  }
+
+  return data as DepartmentEmployee;
+};
+
+export const deleteDepartmentEmployee = async (
+  employeeId: string,
+): Promise<void> => {
+  const { error } = await supabase
+    .from("employee_onboarding")
+    .delete()
+    .eq("id", employeeId)
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("Failed to delete onboarding employee:", error);
+    throw error;
+  }
+};
+
 
 type AttendanceSchemaMode = "current" | "legacy";
 
@@ -122,6 +359,8 @@ export interface LeaveRecord {
   days: number;
   reason: string | null;
   approverId: string | null;
+  workedOnDate: string | null;
+  requestedLeaveOnDate: string | null;
 }
 
 export interface PayrollRecord {
@@ -162,6 +401,16 @@ export interface KudosRecord {
   fromRole: string;
   message: string;
   createdAt: string;
+}
+
+export interface TeamRecord {
+  id: string;
+  team_name: string;
+  team_head_name: string;
+  category: "Board" | "ItOperations" | "Hr";
+  sub_category: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 const PROFILE_SELECT_WITH_MANAGER =
@@ -333,6 +582,8 @@ type AttendancePauseMetadata = {
   pauseStartIso: string | null;
   totalPausedDurationSeconds: number;
 };
+
+
 
 const getPauseMetadata = (row: Record<string, unknown>): AttendancePauseMetadata => ({
   isPaused: Boolean(row.is_paused),
@@ -936,6 +1187,221 @@ export const fetchTeamMembers = async (user: AuthUser, permissionMap: Permission
   });
 };
 
+export const createTeam = async (
+  user: AuthUser,
+  payload: CreateTeamPayload
+) => {
+  const { error } = await supabase
+    .from("teams")
+    .insert({
+      team_name: payload.teamname,
+      team_head_name: payload.teamhead,
+      category: payload.category,
+      sub_category: payload.subCategory || null,
+      created_by: user.id,
+    });
+console.log("Supabase create team payload:", payload);
+  if (error) {
+    console.error("Supabase create team error:", error);
+    throw error;
+  }
+};
+
+export const updateTeam = async (
+  teamId: string,
+  payload: {
+    team_name: string;
+    team_head_name: string;
+    category: string;
+    sub_category: string | null;
+  },
+) => {
+  const updateData = {
+    team_name: payload.team_name,
+    team_head_name: payload.team_head_name,
+    category: payload.category,
+    sub_category: payload.sub_category || null,
+  };
+
+  console.log("Updating Supabase team:", teamId);
+  console.log("Supabase update data:", updateData);
+  console.log("Supabase update payload:", payload);
+
+
+
+  const { data, error } = await supabase
+    .from("teams")
+    .update(updateData)
+    .eq("id", teamId)
+    .select();
+
+  console.log("Supabase update response:", data);
+  console.log("Supabase update error:", error);
+  console.log("teamId:", teamId);
+  
+
+  if (error) {
+    console.error("Supabase update team error:", error);
+    throw error;
+  }
+
+  return data;
+};
+
+
+export const deleteTeam = async (teamId: string) => {
+  const { error } = await supabase
+    .from("teams")
+    .delete()
+    .eq("id", teamId);
+console.log("teamId:", teamId);
+  if (error) {
+    console.error("Supabase delete team error:", error);
+    throw error;
+  }
+};
+
+export const createTeamMember = async (
+  teamId: string,
+  payload: {
+    name: string;
+    email: string;
+    department: string;
+    role: string;
+  },
+) => {
+  console.log("Creating team member for teamId:", teamId);
+  console.log("Supabase create team member payload:", payload);
+  const { data, error } = await supabase
+    .from("profiles")
+    .insert({
+      id: crypto.randomUUID(),
+      name: payload.name,
+      email: payload.email,
+      department: payload.department || null,
+      role: payload.role || null,
+      team_id: teamId,
+    })
+    .select()
+    .single();
+console.log("Supabase create team member response:", data);
+  if (error) {
+    console.error("Supabase create team member error:", error);
+    throw error;
+  }
+
+  return data;
+};
+export const fetchTeamMembersByTeam = async (
+  teamId: string,
+): Promise<TeamMemberRecord[]> => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select(`
+      id,
+      name,
+      email,
+      role,
+      department
+    `)
+    .eq("team_id", teamId)
+    .order("name", { ascending: true });
+console.log("Supabase fetch team members by team response:", data);
+console.log("Supabase fetch team members by team id:", teamId);
+  if (error) {
+    console.error("Supabase fetch team members error:", error);
+    throw error;
+  }
+
+  return (data ?? []) as TeamMemberRecord[];
+};
+
+export const updateTeamMember = async (
+  memberId: string,
+  payload: {
+    name: string;
+    email: string;
+    department: string;
+    role: string;
+  },
+) => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      name: payload.name,
+      email: payload.email,
+      department: payload.department,
+      role: payload.role,
+    })
+    .eq("id", memberId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Supabase update team member error:", error);
+    throw error;
+  }
+
+  return data;
+};
+
+export const deleteTeamMember = async (
+  memberId: string,
+) => {
+ {/* const { error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", memberId);*/}
+  const {data, error } = await supabase
+    .from("profiles")
+    .delete()
+    .eq("id", memberId)
+    .select("id")
+    .maybeSingle();
+
+
+  if (error) {
+    console.error(
+      "Supabase delete team member error:",
+      error
+    );
+
+    throw error;
+  }
+     if (!data) {
+    throw new Error(
+      "Employee was not deleted. The record may not exist, or your Supabase RLS policies may be blocking the deletion."
+    );
+  }
+  
+};
+
+
+export const fetchTeams = async (): Promise<TeamRecord[]> => {
+  const { data, error } = await supabase
+    .from("teams")
+    .select(`
+      id,
+      team_name,
+      team_head_name,
+      category,
+      sub_category,
+      created_by,
+      created_at
+    `)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Supabase fetch teams error:", error);
+    throw error;
+  }
+
+  return data ?? [];
+};
+
+
+
+
 const fetchAttendanceRows = async (
   user: AuthUser,
   permission: ReturnType<typeof getModulePermission>,
@@ -1538,25 +2004,49 @@ export const checkOutCurrentUser = async (user: AuthUser, date: string) => {
   }
 };
 
-export const fetchLeaveRecords = async (user: AuthUser, permissionMap: PermissionMap): Promise<LeaveRecord[]> => {
-  const permission = getModulePermission(permissionMap, "leave");
-  if (!permission.canView) {
+export const fetchLeaveRecords = async (
+  user: AuthUser,
+  permissionMap: PermissionMap,
+  options: { ownOnly?: boolean } = {},
+): Promise<LeaveRecord[]> => {
+  const modulePermission = getModulePermission(permissionMap, "leave");
+  if (!modulePermission.canView) {
     return [];
   }
 
-  let leaveQuery = supabase
-    .from("leaves")
-    .select("id, user_id, type, start_date, end_date, status, days, reason, approver_id, created_at")
-    .order("created_at", { ascending: false });
+  const permission = options.ownOnly ? { ...modulePermission, dataScope: "own" as const } : modulePermission;
 
-  if (permission.dataScope === "own") {
-    leaveQuery = leaveQuery.eq("user_id", user.id);
-  } else if (permission.dataScope === "team") {
-    const userIds = await getUserIdsForScope(user, "team", { includeSelf: true, fallbackToDepartment: true });
-    leaveQuery = leaveQuery.in("user_id", userIds);
+  const teamUserIds =
+    permission.dataScope === "team"
+      ? await getUserIdsForScope(user, "team", { includeSelf: true, fallbackToDepartment: true })
+      : [];
+
+  const runLeaveQuery = (excludeDeleted: boolean) => {
+    let leaveQuery = supabase
+      .from("leaves")
+      .select("id, user_id, type, start_date, end_date, status, days, reason, approver_id, created_at, worked_on, requested_leave_on")
+      .order("created_at", { ascending: false });
+
+    if (excludeDeleted) {
+      leaveQuery = leaveQuery.is("deleted_at", null);
+    }
+
+    if (permission.dataScope === "own") {
+      leaveQuery = leaveQuery.eq("user_id", user.id);
+    } else if (permission.dataScope === "team") {
+      leaveQuery = leaveQuery.in("user_id", teamUserIds);
+    }
+
+    return leaveQuery;
+  };
+
+  let { data, error } = await runLeaveQuery(true);
+
+  // Databases without the soft delete columns yet still return every leave.
+  if (error && isMissingResourceError(error)) {
+    ({ data, error } = await runLeaveQuery(false));
   }
 
-  const { data, error } = await leaveQuery;
   if (error) {
     if (isMissingResourceError(error)) {
       return [];
@@ -1584,13 +2074,22 @@ export const fetchLeaveRecords = async (user: AuthUser, permissionMap: Permissio
       days: Number(row.days ?? 0),
       reason: row.reason ? String(row.reason) : null,
       approverId: row.approver_id ? String(row.approver_id) : null,
+      workedOnDate: row.worked_on ? String(row.worked_on) : null,
+      requestedLeaveOnDate: row.requested_leave_on ? String(row.requested_leave_on) : null,
     };
   });
 };
 
 export const createLeaveRequest = async (
   user: AuthUser,
-  payload: { type: string; from: string; to: string; reason: string },
+  payload: {
+    type: string;
+    from: string;
+    to: string;
+    reason: string;
+    workedOnDate?: string;
+    requestedLeaveOnDate?: string;
+  },
 ) => {
   const start = new Date(payload.from);
   const end = new Date(payload.to);
@@ -1603,6 +2102,8 @@ export const createLeaveRequest = async (
     end_date: payload.to,
     reason: payload.reason,
     days,
+    worked_on: payload.workedOnDate || null,
+    requested_leave_on: payload.requestedLeaveOnDate || null,
   });
 
   if (error) {
@@ -1618,6 +2119,17 @@ export const updateLeaveStatus = async (
   const { error } = await supabase
     .from("leaves")
     .update({ status, approver_id: approverId })
+    .eq("id", leaveId);
+
+  if (error) {
+    throw error;
+  }
+};
+
+export const deleteLeaveRequest = async (leaveId: string) => {
+  const { error } = await supabase
+    .from("leaves")
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", leaveId);
 
   if (error) {
@@ -2000,6 +2512,7 @@ export const inviteUserWithRole = async (payload: AccessInvitePayload) => {
       role: payload.role,
       department: payload.department.trim() || "Operations",
       reportingManagerId: payload.reportingManagerId ?? null,
+      team_id: payload.team_id ?? null,
     },
   });
 
@@ -2048,4 +2561,199 @@ export const updateUserAccess = async (payload: UserUpdatePayload) => {
   }
 
   return data as { success: boolean; message: string };
+};
+
+export interface CreateAdminPayload {
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: AppRole;
+  department: string | null;
+  shift: string | null;
+}
+
+export interface UserCreationRecord {
+  id: string;
+  username: string | null;
+  name: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  department: string | null;
+  shift: string | null;
+  role: string;
+}
+
+export interface UpdateUserCreationPayload {
+  userId: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: AppRole;
+  department: string | null;
+  shift: string | null;
+}
+
+export const createAdminUser = async (form: CreateAdminPayload) => {
+  const { data, error } = await supabase.functions.invoke("admin-create-user", {
+    body: {
+      username: form.username.trim().toLowerCase(),
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim().toLowerCase(),
+      role: form.role,
+      department: form.department?.trim() || null,
+      shift: form.shift?.trim() || null,
+    },
+  });
+
+  if (error) {
+    throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to create the admin user."));
+  }
+
+  return data as { success: boolean; message: string; userId: string };
+};
+
+export const updateUserCreationRecord = async (form: UpdateUserCreationPayload) => {
+  const { data, error } = await supabase.functions.invoke("admin-update-user-creation", {
+    body: {
+      ...form,
+      username: form.username.trim().toLowerCase(),
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      email: form.email.trim().toLowerCase(),
+      department: form.department?.trim() || null,
+      shift: form.shift?.trim() || null,
+    },
+  });
+
+  if (error) {
+    throw new Error(await getFunctionInvokeErrorMessage(error, "Failed to update the user."));
+  }
+
+  return data as { success: boolean; message: string };
+};
+
+export const fetchUserCreationRecords = async (): Promise<UserCreationRecord[]> => {
+  const { data, error } = await supabase
+    .from("user_creation")
+    .select("user_id, username, first_name, last_name, email, department, shift")
+    .order("first_name")
+    .order("last_name");
+
+  if (error) {
+    throw error;
+  }
+
+  const userRows = data ?? [];
+  const userIds = userRows
+    .map((row) => row.user_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  const rolesById = new Map<string, string>();
+  if (userIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .in("id", userIds);
+
+    if (profilesError) {
+      throw profilesError;
+    }
+
+    for (const profile of profiles ?? []) {
+      if (profile.role) {
+        rolesById.set(String(profile.id), String(profile.role));
+      }
+    }
+  }
+
+  return userRows.map((row) => {
+    const id = typeof row.user_id === "string" ? row.user_id : "";
+    const name = [row.first_name, row.last_name]
+      .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+      .join(" ");
+
+    return {
+      id,
+      username: typeof row.username === "string" ? row.username : null,
+      name,
+      firstName: typeof row.first_name === "string" ? row.first_name : "",
+      lastName: typeof row.last_name === "string" ? row.last_name : "",
+      email: typeof row.email === "string" ? row.email : "",
+      department: typeof row.department === "string" ? row.department : null,
+      shift: typeof row.shift === "string" ? row.shift : null,
+      role: rolesById.get(id) ?? "",
+    };
+  });
+};
+
+export const fetchDepartments = async (): Promise<string[]> => {
+  const response = await supabase.from("departments").select("name").order("name");
+
+  if (!response.error) {
+    return (response.data ?? [])
+      .map((row) => (row.name ? String(row.name) : null))
+      .filter((name): name is string => Boolean(name));
+  }
+
+  if (!isMissingResourceError(response.error)) {
+    throw response.error;
+  }
+
+  const profileResponse = await supabase.from("profiles").select("department");
+  if (profileResponse.error) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      (profileResponse.data ?? [])
+        .map((row) => (row.department ? String(row.department) : null))
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ).sort((left, right) => left.localeCompare(right));
+};
+
+export const fetchShifts = async (): Promise<string[]> => {
+  const response = await supabase.from("shifts").select("name").order("name");
+
+  if (!response.error) {
+    return (response.data ?? [])
+      .map((row) => (row.name ? String(row.name) : null))
+      .filter((name): name is string => Boolean(name));
+  }
+
+  if (!isMissingResourceError(response.error)) {
+    throw response.error;
+  }
+
+  // ponytail: no shifts table yet; hardcoded fallback until one exists.
+  return ["1", "2"];
+};
+
+const dropdownTable = (kind: "department" | "shift") => (kind === "department" ? "departments" : "shifts");
+
+export const addDropdownOption = async (kind: "department" | "shift", name: string) => {
+  const { error } = await supabase.from(dropdownTable(kind)).insert({ name: name.trim() });
+
+  if (error) {
+    throw new Error(error.message || `Failed to add the ${kind}.`);
+  }
+};
+
+export const removeDropdownOption = async (kind: "department" | "shift", name: string) => {
+  const { error } = await supabase.from(dropdownTable(kind)).delete().eq("name", name);
+
+  if (error) {
+    throw new Error(error.message || `Failed to remove the ${kind}.`);
+  }
+};
+
+export const deleteAdminUsers = async (targets: Array<{ id: string; email: string }>) => {
+  for (const target of targets) {
+    await deleteUserAccess({ email: target.email, authUserId: target.id });
+  }
 };

@@ -226,7 +226,19 @@ create table if not exists public.attendance (
   updated_at timestamptz not null default timezone('utc', now())
 );
 
-create unique index if not exists attendance_user_id_date_key on public.attendance (user_id, date);
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'attendance'`
+      and column_name = 'date'
+  ) then
+    execute 'create unique index if not exists attendance_user_id_date_key on public.attendance (user_id, date)';
+  end if;
+end;
+$$;
 
 create table if not exists public.leaves (
   id uuid primary key default gen_random_uuid(),
@@ -238,9 +250,16 @@ create table if not exists public.leaves (
   days integer not null default 1,
   status text not null default 'Pending' check (status in ('Pending', 'Approved', 'Rejected')),
   approver_id uuid references public.profiles(id) on delete set null,
+  worked_on date,
+  requested_leave_on date,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.leaves add column if not exists worked_on date;
+alter table public.leaves add column if not exists requested_leave_on date;
+alter table public.leaves add column if not exists deleted_at timestamptz;
+alter table public.leaves add column if not exists deleted_by uuid references public.profiles(id) on delete set null;
 
 create table if not exists public.payroll (
   id uuid primary key default gen_random_uuid(),
@@ -345,7 +364,8 @@ set search_path = public
 as $$
   select p.role
   from public.profiles p
-  where p.id = auth.uid();
+  where p.id = auth.uid()
+    and p.is_active = true;
 $$;
 
 create or replace function public.module_data_scope(module_name text)
@@ -477,6 +497,90 @@ as $$
   where rp.role = public.current_app_role();
 $$;
 
+-- Team member removal: access is revoked by deactivating the profile (not deleting it),
+-- and every removal is logged. Re-adding the person from Team reactivates them.
+alter table public.profiles add column if not exists removed_at timestamptz;
+alter table public.profiles add column if not exists removed_by uuid references public.profiles(id) on delete set null;
+
+create table if not exists public.team_member_removals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  user_name text not null,
+  user_email text not null,
+  team_id uuid,
+  removed_by uuid references public.profiles(id) on delete set null,
+  removed_by_name text,
+  removed_at timestamptz not null default timezone('utc', now())
+);
+
+alter table public.team_member_removals enable row level security;
+
+drop policy if exists "Removal log viewable by admin hr manager" on public.team_member_removals;
+create policy "Removal log viewable by admin hr manager"
+on public.team_member_removals for select
+using (public.current_app_role() in ('admin', 'hr', 'manager'));
+
+create or replace function public.remove_team_member(member_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller public.profiles%rowtype;
+  target public.profiles%rowtype;
+begin
+  select * into caller from public.profiles where id = auth.uid() and is_active = true;
+  if not found or caller.role not in ('admin', 'manager') then
+    raise exception 'Only managers and administrators can remove team members.';
+  end if;
+
+  select * into target from public.profiles where id = member_id;
+  if not found then
+    raise exception 'Team member not found.';
+  end if;
+  if target.id = caller.id then
+    raise exception 'You cannot remove yourself.';
+  end if;
+  if target.role = 'admin' then
+    raise exception 'Administrators cannot be removed from a team.';
+  end if;
+
+  insert into public.team_member_removals (user_id, user_name, user_email, team_id, removed_by, removed_by_name)
+  values (target.id, target.name, target.email, target.team_id, caller.id, caller.name);
+
+  update public.profiles
+  set is_active = false,
+      team_id = null,
+      removed_at = timezone('utc', now()),
+      removed_by = caller.id
+  where id = target.id;
+end;
+$$;
+
+revoke all on function public.remove_team_member(uuid) from public;
+grant execute on function public.remove_team_member(uuid) to authenticated;
+
+-- Lets the login page (anon) check that an email belongs to an active HRMS user
+-- before a password reset link is sent. Returns only a boolean.
+create or replace function public.email_exists_for_reset(check_email text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where lower(email) = lower(trim(check_email))
+      and is_active = true
+  );
+$$;
+
+revoke all on function public.email_exists_for_reset(text) from public;
+grant execute on function public.email_exists_for_reset(text) to anon, authenticated;
+
 create or replace function public.enforce_leave_status_change()
 returns trigger
 language plpgsql
@@ -496,6 +600,14 @@ begin
     if not public.can_access_user(old.user_id, 'leave') then
       raise exception 'You cannot approve leave outside your scope.';
     end if;
+  end if;
+
+  if new.deleted_at is distinct from old.deleted_at or new.deleted_by is distinct from old.deleted_by then
+    if public.current_app_role() <> 'admin' or not public.has_module_permission('leave', 'delete') then
+      raise exception 'Only admins can delete leave requests.';
+    end if;
+
+    new.deleted_by := case when new.deleted_at is null then null else auth.uid() end;
   end if;
 
   return new;
@@ -671,14 +783,6 @@ with check (
     or public.has_module_permission('leave', 'update')
     or public.has_module_permission('leave', 'approve')
   )
-);
-
-create policy "Leave rows can be deleted by admins"
-on public.leaves
-for delete
-using (
-  public.current_app_role() = 'admin'
-  and public.has_module_permission('leave', 'delete')
 );
 
 drop policy if exists "Payroll rows are viewable by scope" on public.payroll;

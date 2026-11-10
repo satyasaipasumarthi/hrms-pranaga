@@ -1,0 +1,135 @@
+
+/* ========================================
+   TEAM PAGE - LIGHT THEME
+======================================== */
+
+.dashboard-light-override {
+  min-height: 100vh;
+  width: 100%;
+  padding-bottom: 4rem;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  color-scheme: light !important;
+}
+
+/* Page background */
+body:has(.dashboard-light-override),
+body:has(.dashboard-light-override) #root {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+}
+
+/* Main page containers */
+.dashboard-light-override,
+.dashboard-light-override > div {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  color-scheme: light !important;
+}
+
+/* Page title */
+.dashboard-light-override h1,
+.dashboard-light-override [data-page-wrapper] h1,
+.dashboard-light-override .page-title {
+  color: #000000 !important;
+  font-weight: 800 !important;
+  opacity: 1 !important;
+}
+
+/* ========================================
+   TEAM MEMBERS TABLE CONTAINER
+======================================== */
+
+.dashboard-light-override .table-container {
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  overflow: hidden;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Table layout */
+.dashboard-light-override table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+/* Table header */
+.dashboard-light-override table th {
+  color: #000000 !important;
+  font-family: Arial, Helvetica, sans-serif !important;
+}
+
+/* Table body cells */
+.dashboard-light-override table td {
+  color: #000000 !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* Row hover */
+.dashboard-light-override table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.dashboard-light-override table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+/* Remove bottom border from last row */
+.dashboard-light-override table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* ========================================
+   DEPARTMENT SELECT
+======================================== */
+
+.dashboard-light-override [data-radix-select-trigger] {
+  color: #000000;
+}
+
+.dashboard-light-override [data-radix-select-content] {
+  background-color: #ffffff;
+  color: #000000;
+}
+
+/* ========================================
+   INPUTS AND FILTERS
+======================================== */
+
+.dashboard-light-override input,
+.dashboard-light-override select {
+  color: #000000;
+}
+
+.dashboard-light-override input::placeholder {
+  color: #94a3b8;
+}
+
+.dashboard-light-override input:focus,
+.dashboard-light-override select:focus {
+  border-color: #ff4500;
+  outline: none;
+}
+
+/* ========================================
+   DIALOGS
+======================================== */
+
+.dashboard-light-override [role="dialog"] {
+  color: #000000;
+  color-scheme: light;
+}
+
+/* ========================================
+   RESPONSIVE TABLE
+======================================== */
+
+.dashboard-light-override .table-container {
+  max-width: 100%;
+}
+
+.dashboard-light-override .table-container > .overflow-x-auto {
+  overflow-x: auto;
+}

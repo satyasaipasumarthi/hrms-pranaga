@@ -114,6 +114,7 @@ Deno.serve(async (request) => {
       role?: string;
       department?: string | null;
       reportingManagerId?: string | null;
+      team_id?: string | null;
     };
 
     const email = payload.email?.trim().toLowerCase();
@@ -121,6 +122,7 @@ Deno.serve(async (request) => {
     const role = payload.role?.trim().toLowerCase();
     const department = payload.department?.trim() || "Operations";
     const reportingManagerId = payload.reportingManagerId?.trim() || null;
+    const teamId = payload.team_id?.trim() || null;
 
     if (!email || !name || !role) {
       return jsonResponse({ error: "Name, email, and role are required." }, 400);
@@ -240,15 +242,18 @@ Deno.serve(async (request) => {
     }
 
     const profileUpsertPayload = {
-      id: authUserId,
-      name,
-      email,
-      role,
-      department,
-      manager_id: normalizedManagerId,
-      reporting_manager_id: normalizedReportingManagerId,
-      is_active: true,
-    };
+  id: authUserId,
+  name,
+  email,
+  role,
+  department,
+  manager_id: normalizedManagerId,
+  reporting_manager_id: normalizedReportingManagerId,
+  team_id: teamId,
+  is_active: true,
+  removed_at: null,
+  removed_by: null,
+};
 
     const { error: profileUpsertError } = await adminClient.from("profiles").upsert(
       profileUpsertPayload,

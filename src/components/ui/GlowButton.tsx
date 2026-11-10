@@ -9,21 +9,57 @@ interface GlowButtonProps {
   className?: string;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
+  /** Renders the button as a real link so right-click offers "Open link in new tab". */
+  href?: string;
+  /** Named window/tab target used for href navigation, e.g. "apply-leave". */
+  target?: string;
+  /** Set false for a flat button with no hover glow / press scale (default true). */
+  glow?: boolean;
 }
 
-const GlowButton = ({ children, onClick, variant = "primary", className, disabled, type = "button" }: GlowButtonProps) => {
+const GlowButton = ({
+  children,
+  onClick,
+  variant = "primary",
+  className,
+  disabled,
+  type = "button",
+  href,
+  target,
+  glow = true,
+}: GlowButtonProps) => {
   const base = "px-6 py-3 rounded-lg font-heading text-sm tracking-wider uppercase transition-all duration-300 disabled:opacity-50";
-  
+
   const variants = {
-    primary: "bg-primary text-primary-foreground hover:shadow-[0_0_25px_hsl(18_100%_59%/0.4)] active:scale-[0.98]",
-    secondary: "bg-secondary/20 text-secondary border border-secondary/30 hover:bg-secondary/30 hover:shadow-[0_0_20px_hsl(217_91%_60%/0.3)]",
+    primary: glow
+      ? "bg-primary text-primary-foreground hover:shadow-[0_0_25px_hsl(18_100%_59%/0.4)] active:scale-[0.98]"
+      : "bg-primary text-primary-foreground hover:bg-primary/90",
+    secondary: glow
+      ? "bg-secondary/20 text-secondary border border-secondary/30 hover:bg-secondary/30 hover:shadow-[0_0_20px_hsl(217_91%_60%/0.3)]"
+      : "bg-secondary/20 text-secondary border border-secondary/30 hover:bg-secondary/30",
     ghost: "text-muted-foreground hover:text-foreground hover:bg-accent",
   };
 
+  const motionProps = glow ? { whileHover: { scale: 1.02 }, whileTap: { scale: 0.98 } } : {};
+
+  if (href && !disabled) {
+    return (
+      <motion.a
+        {...motionProps}
+        href={href}
+        target={target}
+        rel="noopener noreferrer"
+        onClick={onClick}
+        className={cn(base, variants[variant], "inline-flex no-underline", className)}
+      >
+        {children}
+      </motion.a>
+    );
+  }
+
   return (
     <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      {...motionProps}
       onClick={onClick}
       disabled={disabled}
       type={type}

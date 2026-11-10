@@ -1,0 +1,143 @@
+body:has(.dashboard-light-override),
+body:has(.dashboard-light-override) #root {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override {
+  min-height: 100vh;
+  background-color: #FFFFFF !important;
+  color: #000000;
+  color-scheme: light;
+  padding-bottom: 3rem;
+}
+
+.dashboard-light-override .bg-background,
+.dashboard-light-override .bg-card,
+.dashboard-light-override .glass-card,
+.dashboard-light-override .glass-card-glow,
+.dashboard-light-override section {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+  border: 1px solid #FF8A00 !important;
+  color: #000000 !important;
+  box-shadow: 0 4px 14px rgba(255, 69, 0, 0.08) !important;
+  border-radius: 1rem;
+}
+
+.dashboard-light-override .glass-card.attendance-grid-card {
+  border-color: #CBD5E1 !important;
+}
+
+.dashboard-light-override .text-foreground,
+.dashboard-light-override .text-primary-foreground,
+.dashboard-light-override h1,
+.dashboard-light-override h2,
+.dashboard-light-override h3,
+.dashboard-light-override h4 {
+  color: #000000 !important;
+}
+
+.dashboard-light-override .text-muted-foreground {
+  color: #111111 !important;
+  opacity: 0.8;
+}
+
+.dashboard-light-override table tr {
+  border-color: rgba(255, 138, 0, 0.2) !important;
+}
+
+.dashboard-light-override table tr:hover {
+  background-color: #FFF5ED !important;
+}
+
+.dashboard-light-override table th {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+.dashboard-light-override table td {
+  color: #000000 !important;
+}
+
+.dashboard-light-override input,
+.dashboard-light-override select,
+.dashboard-light-override textarea {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border-color: #FF8A00 !important;
+}
+
+.dashboard-light-override .pagination-container,
+.dashboard-light-override [class*="Pagination"] {
+  color: #000000 !important;
+}
+
+.dashboard-light-override .pagination-container select,
+.dashboard-light-override [class*="Pagination"] select {
+  border: 1px solid #FF8A00 !important;
+  color: #000000 !important;
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override .pagination-container button,
+.dashboard-light-override [class*="Pagination"] button {
+  border: 1px solid #FF8A00 !important;
+  color: #000000 !important;
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override .pagination-container button:hover,
+.dashboard-light-override [class*="Pagination"] button:hover {
+  background-color: #FF4500 !important;
+  color: #FFFFFF !important;
+}
+
+
+/* Attendance action buttons */
+.attendance-check-in,
+.attendance-check-out {
+  background-color: #FF4500 !important;
+  color: #FFFFFF !important;
+}
+
+.attendance-check-in:hover:not(:disabled),
+.attendance-check-out:hover:not(:disabled) {
+  background-color: #FF8A00 !important;
+  color: #FFFFFF !important;
+}
+
+.attendance-pause {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border: 1px solid #FF8A00 !important;
+}
+
+.attendance-pause:hover:not(:disabled) {
+  background-color: #FFF5ED !important;
+  color: #000000 !important;
+}
+
+
+/* Apply Leave button */
+.attendance-apply-leave {
+  background-color: #FF4500 !important;
+  color: #FFFFFF !important;
+}
+
+.attendance-apply-leave:hover:not(:disabled) {
+  background-color: #FF8A00 !important;
+  color: #FFFFFF !important;
+}
+
+/* Leave Operations and View Leave buttons */
+.attendance-leave-operations {
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  border: 1px solid #FF8A00 !important;
+}
+
+.attendance-leave-operations:hover:not(:disabled) {
+  background-color: #FFF5ED !important;
+  color: #000000 !important;
+}

@@ -99,11 +99,11 @@ export const moduleAccessDefinitions: ModuleAccessDefinition[] = [
   { module: "attendance", label: "Attendance", routePath: "/attendance", sortOrder: 30, isEnabled: true },
   { module: "leave", label: "Leave", routePath: "/leave", sortOrder: 40, isEnabled: true },
   { module: "payroll", label: "Payroll", routePath: "/payroll", sortOrder: 50, isEnabled: true },
-  { module: "performance", label: "Performance", routePath: "/performance", sortOrder: 60, isEnabled: true },
+//{ module: "performance", label: "Performance", routePath: "/performance", sortOrder: 60, isEnabled: true },
   { module: "employees", label: "Employees", routePath: "/employees", sortOrder: 70, isEnabled: true },
   { module: "recruitment", label: "Recruitment", routePath: "/recruitment", sortOrder: 80, isEnabled: true },
-  { module: "wall_of_fame", label: "Wall of Fame", routePath: "/wall-of-fame", sortOrder: 90, isEnabled: true },
-  { module: "access_control", label: "Access Control", routePath: "/access-control", sortOrder: 95, isEnabled: true },
+  //{ module: "wall_of_fame", label: "Wall of Fame", routePath: "/wall-of-fame", sortOrder: 90, isEnabled: true },
+  //{ module: "access_control", label: "Access Control", routePath: "/access-control", sortOrder: 95, isEnabled: true },
   { module: "settings", label: "Settings", routePath: "/settings", sortOrder: 100, isEnabled: true },
   { module: "kudos", label: "Kudos", routePath: null, sortOrder: 110, isEnabled: true },
 ];
@@ -115,7 +115,7 @@ export const navItemsByModule: Record<Exclude<AppModule, "kudos">, NavItem> = {
   leave: { label: "Leave", icon: CalendarOff, path: "/leave", module: "leave" },
   payroll: { label: "Payroll", icon: DollarSign, path: "/payroll", module: "payroll" },
   performance: { label: "Performance", icon: TrendingUp, path: "/performance", module: "performance" },
-  employees: { label: "Employees", icon: Users, path: "/employees", module: "employees" },
+  employees: { label: "Employee", icon: Users, path: "/employees", module: "employees" },
   recruitment: { label: "Recruitment", icon: UserPlus, path: "/recruitment", module: "recruitment" },
   access_control: { label: "Access Control", icon: ShieldCheck, path: "/access-control", module: "access_control" },
   wall_of_fame: { label: "Wall of Fame", icon: Trophy, path: "/wall-of-fame", module: "wall_of_fame" },
@@ -135,7 +135,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("attendance", { canView: true, canCreate: true, canUpdate: true, dataScope: "own" }),
     grant("leave", { canView: true, canCreate: true, dataScope: "own" }),
     grant("payroll", { canView: true, dataScope: "own" }),
-    grant("performance", { canView: true, dataScope: "own" }),
+    //grant("performance", { canView: true, dataScope: "own" }),
     grant("wall_of_fame", { canView: true, dataScope: "organization" }),
     grant("kudos", { canView: true, dataScope: "own" }),
   ],
@@ -145,7 +145,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("attendance", { canView: true, canCreate: true, canUpdate: true, dataScope: "team" }),
     grant("leave", { canView: true, canCreate: true, canUpdate: true, canApprove: true, dataScope: "team" }),
     grant("payroll", { canView: true, dataScope: "own" }),
-    grant("performance", { canView: true, canUpdate: true, dataScope: "team" }),
+    //grant("performance", { canView: true, canUpdate: true, dataScope: "team" }),
     grant("wall_of_fame", { canView: true, dataScope: "organization" }),
     grant("kudos", { canView: true, canCreate: true, dataScope: "organization" }),
   ],
@@ -154,9 +154,10 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("attendance", { canView: true, canCreate: true, canUpdate: true, dataScope: "organization" }),
     grant("leave", { canView: true, canCreate: true, canUpdate: true, canApprove: true, dataScope: "organization" }),
     grant("payroll", { canView: true, canUpdate: true, dataScope: "organization" }),
-    grant("performance", { canView: true, canUpdate: true, dataScope: "organization" }),
-    grant("employees", { canView: true, canUpdate: true, dataScope: "organization" }),
+    //grant("performance", { canView: true, canUpdate: true, dataScope: "organization" }),
+    grant("employees", { canView: true,canCreate: true, canUpdate: true, canDelete: false,dataScope: "organization" }),
     grant("recruitment", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "organization" }),
+     grant("settings", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("wall_of_fame", { canView: true, dataScope: "organization" }),
     grant("kudos", { canView: true, canCreate: true, dataScope: "organization" }),
   ],
@@ -166,7 +167,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("attendance", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("leave", { canView: true, canCreate: true, canUpdate: true, canDelete: true, canApprove: true, dataScope: "all" }),
     grant("payroll", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
-    grant("performance", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
+    //grant("performance", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("employees", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("recruitment", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("access_control", { canView: true, canCreate: true, canUpdate: true, dataScope: "all" }),
@@ -180,7 +181,7 @@ export const appRoles: AppRole[] = ["admin", "hr", "manager", "employee"];
 export const assignableRoles = ["hr", "manager", "employee"] as const;
 export type AssignableRole = (typeof assignableRoles)[number];
 
-export const formatRoleLabel = (role: AppRole) => role.charAt(0).toUpperCase() + role.slice(1);
+export const formatRoleLabel = (role: AppRole) => (role === "hr" ? "HR" : role.charAt(0).toUpperCase() + role.slice(1));
 
 export const normalizeRole = (role: string | null | undefined): AppRole | null => {
   if (!role) {

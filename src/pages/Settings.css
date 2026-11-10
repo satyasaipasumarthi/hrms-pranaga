@@ -1,0 +1,161 @@
+
+/* Settings.css */
+
+/* Centralized font settings */
+.dashboard-light-override {
+  --settings-font-family: "Inter", Arial, Helvetica, sans-serif;
+  --settings-font-size: 13px;
+  --settings-table-font-size: 13px;
+  --settings-header-font-size: 12px;
+  --settings-label-font-size: 11px;
+  --settings-input-font-size: 13px;
+  --settings-title-font-size: 24px;
+
+  font-family: var(--settings-font-family);
+  font-size: var(--settings-font-size);
+  color: #000000;
+  background-color: #ffffff;
+  color-scheme: light;
+}
+
+/* Page background */
+body:has(.dashboard-light-override),
+body:has(.dashboard-light-override) #root {
+  background: #ffffff !important;
+}
+
+/* Apply font consistently */
+.dashboard-light-override,
+.dashboard-light-override button,
+.dashboard-light-override input,
+.dashboard-light-override select,
+.dashboard-light-override textarea,
+.dashboard-light-override table {
+  font-family: var(--settings-font-family) !important;
+}
+
+/* Page title */
+.dashboard-light-override h1,
+.dashboard-light-override [data-page-wrapper] h1,
+.dashboard-light-override .page-title {
+  color: #000000 !important;
+  font-size: var(--settings-title-font-size) !important;
+  font-weight: 700 !important;
+  opacity: 1 !important;
+}
+
+/* Table container */
+.dashboard-light-override .table-container {
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Table layout */
+.dashboard-light-override table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  font-size: var(--settings-table-font-size) !important;
+}
+
+/* Table headings */
+.dashboard-light-override table th {
+  color: #000000 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  text-align: left !important;
+}
+
+/* Table cell text */
+.dashboard-light-override table td {
+  color: #000000 !important;
+  font-size: 14px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* Row hover */
+.dashboard-light-override table tbody tr {
+  transition: background-color 150ms ease;
+}
+
+.dashboard-light-override table tbody tr:hover {
+  background-color: #f8fafc !important;
+}
+
+.dashboard-light-override table tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+/* Filter controls */
+.dashboard-light-override table input,
+.dashboard-light-override table select {
+  font-size: var(--settings-input-font-size) !important;
+}
+
+/* Form labels */
+.dashboard-light-override label {
+  font-family: var(--settings-font-family) !important;
+  font-size: var(--settings-label-font-size) !important;
+}
+
+/* Form inputs and dropdowns */
+.dashboard-light-override input,
+.dashboard-light-override select,
+.dashboard-light-override textarea {
+  font-size: var(--settings-input-font-size) !important;
+}
+
+/* Buttons */
+.dashboard-light-override button {
+  font-family: var(--settings-font-family) !important;
+}
+
+/* Loading and empty states */
+.dashboard-light-override table td.text-center {
+  font-size: var(--settings-table-font-size) !important;
+}
+
+
+/* Users page - Add User button */
+.settings-add-user-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 12px;
+  background-color: #ff9100;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: filter 150ms ease;
+}
+
+.settings-add-user-btn:hover {
+  filter: brightness(1.05);
+}
+
+.settings-add-user-btn:focus-visible {
+  outline: 2px solid #ff9100;
+  outline-offset: 3px;
+}
+
+.settings-add-user-btn svg {
+  width: 16px;
+  height: 16px;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.settings-add-user-btn span {
+  color: #ffffff;
+  font-weight: 700;
+}
+

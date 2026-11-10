@@ -1,0 +1,234 @@
+
+/* Apply Leave page - full content area */
+.leave-apply-page {
+  background-color: #ffffff !important;
+  color: #1f2937;
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24px 32px;
+  border-radius: 0;
+}
+
+/* Leave balance summary and form cards */
+.leave-apply-page .leave-apply-card,
+.leave-apply-page .glass-card {
+  background-color: #ffffff !important;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Headings */
+.leave-apply-page h1,
+.leave-apply-page h2,
+.leave-apply-page h3,
+.leave-apply-page .leave-apply-heading {
+  color: #111827 !important;
+}
+
+/* Labels and descriptive text */
+.leave-apply-page label {
+  color: #374151 !important;
+}
+
+.leave-apply-page p,
+.leave-apply-page span {
+  color: #4b5563;
+}
+
+/* leave submission */
+leave-apply-page form button[type="submit"],
+.leave-apply-page .glass-card button[type="submit"] {
+  background-color: #f97316 !important;
+  background: #f97316 !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.leave-apply-page form button[type="submit"]:hover {
+  background-color: #ea580c !important;
+}
+
+/* Form controls */
+.leave-apply-page select,
+.leave-apply-page input,
+.leave-apply-page textarea {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+}
+
+.leave-apply-page select option {
+  background-color: #ffffff;
+  color: #111827;
+}
+
+.leave-apply-page select:focus,
+.leave-apply-page input:focus,
+.leave-apply-page textarea:focus {
+  outline: none;
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+}
+
+/* Tables */
+.leave-apply-page table {
+  color: #1f2937;
+}
+
+.leave-apply-page th {
+  color: #374151;
+}
+
+.leave-apply-page td {
+  color: #4b5563;
+}
+
+.leave-apply-page tr {
+  border-color: #e5e7eb;
+}
+
+.leave-apply-layout {
+  background: #ffffff !important;
+  color: #1f2937;
+  color-scheme: light;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.leave-apply-layout h1 {
+  color: #000000 !important;
+}
+
+/* Leave Balance table container */
+.leave-apply-page .leave-apply-card,
+.leave-apply-page .glass-card {
+  background-color: #ffffff !important;
+  border: 1px solid #D6E0EA !important;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+/* Table background */
+.leave-apply-page table {
+  width: 100%;
+  background-color: #ffffff;
+  border-collapse: collapse;
+  border: 1px solid #94A3B8;
+  border-radius: 8px;
+}
+
+/* Table header */
+.leave-apply-page thead {
+  background-color: #F1F5F9;
+}
+
+.leave-apply-page th {
+  color: #334155 !important;
+  background-color: #F1F5F9;
+  border-bottom: 0;
+  padding: 14px 12px;
+  text-align: left;
+}
+
+/* Table rows and cells */
+.leave-apply-page td {
+  color: #475569 !important;
+  background-color: #ffffff;
+  border-bottom: 0;
+  padding: 14px 12px;
+}
+
+/* Row hover effect */
+.leave-apply-page tbody tr:hover td {
+  background-color: #F8FAFC;
+}
+
+/* Force white background and dark text for the DatePickerField buttons */
+.leave-apply-page [class*="DatePickerField"] button,
+.leave-apply-page [class*="date-picker"] button,
+.leave-apply-page .grid button {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.leave-apply-page [class*="DatePickerField"] button *,
+.leave-apply-page [class*="date-picker"] button *,
+.leave-apply-page .grid button * {
+  color: #374151 !important;
+}
+
+.leave-apply-page [class*="DatePickerField"] button,
+.leave-apply-page [class*="date-picker"] button {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+}
+
+.leave-apply-page [class*="DatePickerField"] button span,
+.leave-apply-page [class*="DatePickerField"] button svg,
+.leave-apply-page [class*="date-picker"] button span,
+.leave-apply-page [class*="date-picker"] button svg {
+  color: #374151 !important;
+}
+
+.leave-apply-page [class*="DatePickerField"] button:hover,
+.leave-apply-page [class*="date-picker"] button:hover {
+  background-color: #f9fafb !important;
+  border-color: #9ca3af !important;
+}
+
+.leave-apply-page [class*="calendar"],
+.leave-apply-page [class*="popover"],
+.leave-apply-page [class*="dropdown"],
+.absolute.z-50,
+div[role="dialog"],
+div[data-radix-popper-content-wrapper],
+.react-datepicker {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leave-apply-page [class*="calendar"] *,
+.leave-apply-page [class*="popover"] *,
+.absolute.z-50 *,
+.react-datepicker__header,
+.react-datepicker__day-name,
+.react-datepicker__day {
+  color: #111827 !important;
+}
+
+.leave-apply-page div[role="dialog"] button[aria-selected="true"],
+.leave-apply-page .absolute button[aria-selected="true"],
+.leave-apply-page [class*="calendar"] button[aria-selected="true"],
+.leave-apply-page [class*="calendar"] [data-selected="true"],
+.leave-apply-page [class*="calendar"] .selected-day,
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected,
+[data-radix-popper-content-wrapper] button[aria-selected="true"],
+.rdp-day_selected {
+  background-color: #000000 !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  border-color: #000000 !important;
+  box-shadow: none !important;
+}
+
+/* Force text inside the selected date to white */
+.leave-apply-page div[role="dialog"] button[aria-selected="true"] *,
+.leave-apply-page [class*="calendar"] button[aria-selected="true"] *,
+.leave-apply-page [class*="calendar"] .selected-day *,
+.react-datepicker__day--selected * {
+  color: #ffffff !important;
+}
+
+.leave-apply-page [class*="calendar"] button:hover:not([aria-selected="true"]):not(:disabled),
+.react-datepicker__day:hover:not(.react-datepicker__day--selected) {
+  background-color: #f3f4f6 !important;
+}

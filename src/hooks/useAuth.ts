@@ -3,6 +3,7 @@ import { fetchAccessContext } from "@/lib/hrms-api";
 import { getHomePath, type PermissionMap } from "@/lib/permissions";
 import { type AuthUser, type ResolvedModulePermission } from "@/lib/roles";
 import { supabase } from "@/lib/supabase";
+import { hasPendingAuthAction } from "@/lib/auth-links";
 
 interface AuthState {
   user: AuthUser | null;
@@ -81,6 +82,12 @@ const attachAuthListener = (set: (partial: Partial<AuthState>) => void) => {
   }
 
   const listener = supabase.auth.onAuthStateChange((event, session) => {
+    // Invite/recovery links create a session only so the password can be set;
+    // the user must sign in again afterwards instead of landing in the app.
+    if (typeof window !== "undefined" && hasPendingAuthAction(window.location.hash, window.location.search)) {
+      return;
+    }
+
     void Promise.resolve().then(async () => {
       if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && session?.user) {
         set({ isLoading: true });
@@ -173,7 +180,9 @@ export const useAuth = create<AuthState>((set, get) => ({
           throw error;
         }
 
-        if (session?.user) {
+        if (session?.user && typeof window !== "undefined" && hasPendingAuthAction(window.location.hash, window.location.search)) {
+          applySignedOutState(set);
+        } else if (session?.user) {
           const hydrated = await hydrateAccessContext(session.user.id, set);
           if (!hydrated) {
             await supabase.auth.signOut();

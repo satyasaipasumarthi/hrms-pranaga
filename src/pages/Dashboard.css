@@ -1,0 +1,95 @@
+/* Dashboard page light-theme overrides */
+
+body:has(.dashboard-light-override),
+body:has(.dashboard-light-override) #root {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override,
+.dashboard-light-override > div {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+  color: #14264F !important;
+  color-scheme: light !important;
+  min-height: 100vh;
+}
+
+.dashboard-light-override,
+.dashboard-light-override main,
+.dashboard-light-override [data-page-wrapper] {
+  background-color: #FFFFFF !important;
+  color-scheme: light !important;
+}
+
+.dashboard-light-override .bg-background,
+.dashboard-light-override .bg-card,
+.dashboard-light-override .glass-card,
+.dashboard-light-override .glass-card-glow,
+.dashboard-light-override section {
+  background: #FFFFFF !important;
+  background-color: #FFFFFF !important;
+  border-color: #E7EDF5 !important;
+  color: #14264F !important;
+  box-shadow: 0 2px 8px rgba(20, 38, 79, 0.04);
+}
+
+.dashboard-light-override .text-foreground,
+.dashboard-light-override .text-primary-foreground,
+.dashboard-light-override h1,
+.dashboard-light-override h2,
+.dashboard-light-override h3,
+.dashboard-light-override h4 {
+  color: #14264F !important;
+}
+
+.dashboard-light-override .text-muted-foreground {
+  color: #71829B !important;
+}
+
+.dashboard-light-override input,
+.dashboard-light-override select,
+.dashboard-light-override textarea {
+  background-color: #FFFFFF !important;
+  color: #14264F !important;
+  border-color: #E1E9F3 !important;
+}
+
+
+
+/* Chart card title icon colors */
+.chart-title-icon {
+  display: inline-flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+.chart-title-icon--gender {
+  background-color: #FFE8F2;
+  color: #E94F9B;
+}
+
+.chart-title-icon--role-type {
+  background-color: #F0E8FF;
+  color: #8B5CF6;
+}
+
+.chart-title-icon--employee-status,
+.chart-title-icon--attendance-trend {
+  background-color: #E5F2FF;
+  color: #3185E8;
+}
+
+.chart-title-icon--blood-group {
+  background-color: #FFF0F5;
+  color: #F05283;
+}
+
+.chart-title-icon--default {
+  background-color: #EAF3FF;
+  color: #6F9FCF;
+}

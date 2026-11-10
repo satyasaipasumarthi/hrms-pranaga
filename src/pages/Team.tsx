@@ -1,103 +1,1166 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import PageWrapper from "@/components/ui/PageWrapper";
+import PaginationControls, {
+  usePagination,
+} from "@/components/ui/PaginationControls";
+import { toast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { fetchTeamMembers, type ProfileRecord } from "@/lib/hrms-api";
-import { hasModulePermission } from "@/lib/permissions";
-import { formatRoleLabel, normalizeRole } from "@/lib/roles";
+import {
+  createTeam,
+  fetchTeams,
+  updateTeam,
+  getReadableErrorMessage,
+  type TeamRecord,
+} from "@/lib/hrms-api";
+import { exportTeamMembersToExcel } from "@/lib/export-team-members";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Download, Eye, Pencil, Trash2, Plus, Search, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  deleteDepartmentEmployee,
+  fetchEmployeesByDepartment,
+  updateDepartmentEmployee,
+  type DepartmentEmployee,
+} from "@/lib/hrms-api";
+import "./Team.css";
 
 const Team = () => {
-  const { user, permissions } = useAuth();
-  const [teamMembers, setTeamMembers] = useState<ProfileRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+
+  const [teams, setTeams] = useState<TeamRecord[]>([]);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [teamName, setTeamName] = useState("");
+  const [teamHead, setTeamHead] = useState("");
+  const [teamCategory, setTeamCategory] = useState<"" | TeamRecord["category"]>(
+    "",
+  );
+  const [teamSubCategory, setTeamSubCategory] = useState("");
+  const [customSubCategory, setCustomSubCategory] = useState("");
+  const [editingTeam, setEditingTeam] = useState<TeamRecord | null>(null);
+
+  const [showAddTeamForm, setShowAddTeamForm] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [isSavingTeam, setIsSavingTeam] = useState(false);
+  const [formErrors, setFormErrors] = useState<{
+    teamName?: string;
+    teamHead?: string;
+    teamCategory?: string;
+    customSubCategory?: string;
+  }>({});
+
+  const finalSubCategory =
+    teamCategory !== "ItOperations"
+      ? ""
+      : teamSubCategory === "Other"
+        ? customSubCategory.trim()
+        : teamSubCategory;
+
+  const departmentOptions = [
+    "Executives",
+    "Operations",
+    "Sales & Marketing",
+    "HR",
+    "Web Development",
+    "Client Relations",
+    "Design & Media",
+    "Cyber Security",
+    "AI",
+  ];
+
+  const [selectedDepartment, setSelectedDepartment] = useState("");
+  const [departmentEmployees, setDepartmentEmployees] = useState<
+    DepartmentEmployee[]
+  >([]);
+  const [viewingDepartmentEmployee, setViewingDepartmentEmployee] =
+    useState<DepartmentEmployee | null>(null);
+  const [editingDepartmentEmployee, setEditingDepartmentEmployee] =
+    useState<DepartmentEmployee | null>(null);
+  const [departmentEmployeeToDelete, setDepartmentEmployeeToDelete] =
+    useState<DepartmentEmployee | null>(null);
+  const [loadingDepartmentEmployees, setLoadingDepartmentEmployees] =
+    useState(false);
+  const [departmentError, setDepartmentError] = useState("");
+
+  // Table search & filter states
+  const [idFilter, setIdFilter] = useState("");
+  const [firstNameFilter, setFirstNameFilter] = useState("");
+  const [lastNameFilter, setLastNameFilter] = useState("");
+  const [emailFilter, setEmailFilter] = useState("");
+  const [deptTableFilter, setDeptTableFilter] = useState("");
+  const [designationFilter, setDesignationFilter] = useState("");
+
+  const filteredEmployees = useMemo(() => {
+    return departmentEmployees.filter((emp) => {
+      const matchesId = (emp.employee_id ?? "")
+        .toLowerCase()
+        .includes(idFilter.toLowerCase().trim());
+      const matchesFirst = (emp.first_name ?? "")
+        .toLowerCase()
+        .includes(firstNameFilter.toLowerCase().trim());
+      const matchesLast = (emp.last_name ?? "")
+        .toLowerCase()
+        .includes(lastNameFilter.toLowerCase().trim());
+      const matchesEmail = (emp.personal_email ?? "")
+        .toLowerCase()
+        .includes(emailFilter.toLowerCase().trim());
+      const matchesDept =
+        !deptTableFilter ||
+        (emp.department ?? "").toLowerCase() === deptTableFilter.toLowerCase();
+      const matchesDesig = (emp.designation ?? "")
+        .toLowerCase()
+        .includes(designationFilter.toLowerCase().trim());
+
+      return (
+        matchesId &&
+        matchesFirst &&
+        matchesLast &&
+        matchesEmail &&
+        matchesDept &&
+        matchesDesig
+      );
+    });
+  }, [
+    departmentEmployees,
+    idFilter,
+    firstNameFilter,
+    lastNameFilter,
+    emailFilter,
+    deptTableFilter,
+    designationFilter,
+  ]);
+
+  const pagination = usePagination(filteredEmployees);
+
+  const handleDepartmentChange = async (dept: string) => {
+    setSelectedDepartment(dept);
+    setDepartmentEmployees([]);
+    setDepartmentError("");
+
+    if (!dept) return;
+
+    setLoadingDepartmentEmployees(true);
+
+    try {
+      const employees = await fetchEmployeesByDepartment(dept);
+      setDepartmentEmployees(employees);
+    } catch (error) {
+      console.error(error);
+      setDepartmentError(
+        "Unable to fetch employees. Please check your permissions and try again.",
+      );
+    } finally {
+      setLoadingDepartmentEmployees(false);
+    }
+  };
+
+  const handleClearDepartment = () => {
+    setSelectedDepartment("");
+    setDepartmentEmployees([]);
+    setDepartmentError("");
+  };
+
+  const handleUpdateDepartmentEmployee = async () => {
+    if (!editingDepartmentEmployee) return;
+
+    try {
+      const updatedEmployee = await updateDepartmentEmployee(
+        editingDepartmentEmployee.id,
+        {
+          first_name: editingDepartmentEmployee.first_name.trim(),
+          last_name: editingDepartmentEmployee.last_name.trim(),
+          designation: editingDepartmentEmployee.designation?.trim() || null,
+          personal_email:
+            editingDepartmentEmployee.personal_email?.trim() || null,
+          department: editingDepartmentEmployee.department?.trim() || null,
+        },
+      );
+
+      setDepartmentEmployees((employees) =>
+        updatedEmployee.department === selectedDepartment
+          ? employees.map((employee) =>
+              employee.id === updatedEmployee.id ? updatedEmployee : employee,
+            )
+          : employees.filter((employee) => employee.id !== updatedEmployee.id),
+      );
+      setEditingDepartmentEmployee(null);
+      toast({
+        title: "Employee updated",
+        description: "Onboarding employee details were updated successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to update onboarding employee:", error);
+      toast({
+        title: "Update failed",
+        description: getReadableErrorMessage(
+          error,
+          "The employee details could not be updated.",
+        ),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteDepartmentEmployee = async () => {
+    if (!departmentEmployeeToDelete) return;
+
+    try {
+      await deleteDepartmentEmployee(departmentEmployeeToDelete.id);
+      setDepartmentEmployees((employees) =>
+        employees.filter(
+          (employee) => employee.id !== departmentEmployeeToDelete.id,
+        ),
+      );
+      toast({
+        title: "Employee deleted",
+        description: "The onboarding employee record was deleted.",
+      });
+      setDepartmentEmployeeToDelete(null);
+    } catch (error) {
+      console.error("Failed to delete onboarding employee:", error);
+      toast({
+        title: "Delete failed",
+        description: getReadableErrorMessage(
+          error,
+          "The employee onboarding record could not be deleted.",
+        ),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportTeamMembers = async () => {
+    if (!selectedDepartment || departmentEmployees.length === 0) return;
+
+    try {
+      await exportTeamMembersToExcel(
+        selectedDepartment,
+        departmentEmployees,
+      );
+    } catch (error) {
+      console.error("Failed to export team members:", error);
+      toast({
+        title: "Export failed",
+        description: getReadableErrorMessage(
+          error,
+          "The team members could not be exported.",
+        ),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateTeam = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const errors: typeof formErrors = {};
+    if (!teamName.trim()) errors.teamName = "Please enter team name.";
+    if (!teamHead.trim()) errors.teamHead = "Please enter team head.";
+    if (!teamCategory) errors.teamCategory = "Please select category.";
+    if (
+      teamCategory === "ItOperations" &&
+      teamSubCategory === "Other" &&
+      !customSubCategory.trim()
+    ) {
+      errors.customSubCategory = "Please enter a custom subcategory.";
+    }
+
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) return;
+
+    try {
+      setIsSavingTeam(true);
+
+      const payload = {
+        teamname: teamName.trim(),
+        teamhead: teamHead.trim(),
+        category: teamCategory,
+        subCategory: finalSubCategory,
+      };
+
+      if (editingTeam) {
+        await updateTeam(editingTeam.id, {
+          team_name: teamName,
+          team_head_name: teamHead,
+          category: payload.category,
+          sub_category: payload.subCategory || null,
+        });
+      } else {
+        await createTeam(user, payload);
+      }
+
+      const data = await fetchTeams();
+      setTeams(data);
+      setSuccessMessage(
+        editingTeam ? "Team Updated Successfully" : "Team Created Successfully",
+      );
+
+      setTeamName("");
+      setTeamHead("");
+      setTeamCategory("");
+      setTeamSubCategory("");
+      setCustomSubCategory("");
+      setEditingTeam(null);
+      setShowAddTeamForm(false);
+      setShowSuccessPopup(true);
+    } catch (error) {
+      console.error(
+        editingTeam ? "Failed to update team:" : "Failed to create team:",
+        error,
+      );
+      toast({
+        title: editingTeam ? "Team update failed" : "Team creation failed",
+        description: getReadableErrorMessage(
+          error,
+          editingTeam
+            ? "The team could not be updated."
+            : "The team could not be created.",
+        ),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingTeam(false);
+    }
+  };
+
+  const handleCancelAddTeam = () => {
+    setTeamName("");
+    setTeamHead("");
+    setTeamCategory("");
+    setTeamSubCategory("");
+    setCustomSubCategory("");
+    setShowAddTeamForm(false);
+  };
 
   useEffect(() => {
-    const loadTeam = async () => {
-      if (!user || !hasModulePermission(permissions, "team", "view")) {
-        setTeamMembers([]);
-        setIsLoading(false);
-        return;
-      }
-
-      setIsLoading(true);
-
-      try {
-        const rows = await fetchTeamMembers(user, permissions);
-        setTeamMembers(rows);
-      } catch (error) {
-        console.error("Failed to load team members:", error);
-        setTeamMembers([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void loadTeam();
-  }, [permissions, user]);
+    document.title = "Teams";
+  }, []);
 
   return (
-    <PageWrapper label="TEAM_DIRECTORY" title="My Team">
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass-card p-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+    <div
+      className="dashboard-light-override min-h-screen w-full pb-16"
+      style={{
+        backgroundColor: "#FFFFFF",
+        color: "#000000",
+        colorScheme: "light",
+      }}
+    >
+     
+      <PageWrapper
+        label=""
+        title="Teams"
+        action={
+          <button
+            type="button"
+            onClick={() => setShowAddTeamForm(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-xl px-5 text-xs font-bold shadow-sm transition-all hover:brightness-105 cursor-pointer"
+            style={{
+              backgroundColor: "#FF4500",
+              color: "#FFFFFF",
+              border: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              visibility: "visible",
+              opacity: 1,
+            }}
+          >
+            <Plus className="h-4 w-4" style={{ color: "#FFFFFF" }} />
+            <span style={{ color: "#FFFFFF", fontWeight: "bold" }}>
+              Add Team
+            </span>
+          </button>
+        }
+      >
+        <div className="space-y-6">
+          {/* DEPARTMENT SELECT BAR */}
+          <div className="w-full sm:w-[320px] space-y-1.5">
+            <label className="text-xs font-bold text-black uppercase tracking-wider">
+              Department
+            </label>
+            <Select
+              value={selectedDepartment}
+              onValueChange={handleDepartmentChange}
+            >
+              <SelectTrigger   className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
+                <SelectValue placeholder="Select a department" />
+              </SelectTrigger>
+              <SelectContent className="bg-white border border-slate-200 text-black shadow-lg">
+                {departmentOptions.map((dept) => (
+                  <SelectItem key={dept} value={dept}>
+                    {dept}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border/50">
-                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">NAME</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">EMAIL</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">DEPARTMENT</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">REPORTING_MANAGER</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-heading text-xs tracking-wider">ROLE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {teamMembers.map((employee, index) => {
-                  const normalizedRole = normalizeRole(employee.role);
 
-                  return (
-                    <motion.tr
-                      key={employee.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="border-b border-border/30 hover:bg-accent/30 transition-colors"
+          {/* ADD / EDIT TEAM FORM */}
+          {showAddTeamForm && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h2 className="text-base font-bold text-black">
+                  {editingTeam ? "Edit Team" : "Add New Team"}
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleCancelAddTeam}
+                  className="text-slate-400 hover:text-black"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateTeam} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                      Team Name
+                    </label>
+                    <input
+                      type="text"
+                      value={teamName}
+                      onChange={(e) => setTeamName(e.target.value)}
+                      placeholder="Enter team name"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                    />
+                    {formErrors.teamName && (
+                      <p className="text-xs text-[#EF4444]">
+                        {formErrors.teamName}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                      Team Head
+                    </label>
+                    <input
+                      type="text"
+                      value={teamHead}
+                      onChange={(e) => setTeamHead(e.target.value)}
+                      placeholder="Enter team head"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                    />
+                    {formErrors.teamHead && (
+                      <p className="text-xs text-[#EF4444]">
+                        {formErrors.teamHead}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                      Category
+                    </label>
+                    <Select
+                      value={teamCategory || undefined}
+                      onValueChange={(value) => {
+                        setTeamCategory(value as TeamRecord["category"]);
+                        setTeamSubCategory("");
+                        setCustomSubCategory("");
+                      }}
                     >
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary/15 border border-primary/20 flex items-center justify-center">
-                            <span className="text-xs font-heading font-semibold text-primary">{employee.name[0]}</span>
+                      <SelectTrigger className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
+                        <SelectValue placeholder="Select Category" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border border-slate-200 text-black">
+                        <SelectItem value="ItOperations">
+                          IT Operations
+                        </SelectItem>
+                        <SelectItem value="Hr">HR Operations</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {formErrors.teamCategory && (
+                      <p className="text-xs text-[#EF4444]">
+                        {formErrors.teamCategory}
+                      </p>
+                    )}
+                  </div>
+
+                  {teamCategory === "ItOperations" && (
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                        Sub Category
+                      </label>
+                      <Select
+                        value={teamSubCategory || undefined}
+                        onValueChange={(value) => {
+                          setTeamSubCategory(value);
+                          if (value !== "Other") {
+                            setCustomSubCategory("");
+                            setFormErrors((errors) => ({
+                              ...errors,
+                              customSubCategory: undefined,
+                            }));
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
+                          <SelectValue placeholder="Select Sub Category" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white border border-slate-200 text-black">
+                          <SelectItem value="Artificial Intelligence / Machine Learning">
+                            AI / ML
+                          </SelectItem>
+                          <SelectItem value="Cyber Security">
+                            Cyber Security
+                          </SelectItem>
+                          <SelectItem value="Web Development">
+                            Web Development
+                          </SelectItem>
+                          <SelectItem value="Other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  {teamCategory === "ItOperations" &&
+                    teamSubCategory === "Other" && (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="custom-subcategory"
+                          className="text-[11px] font-bold text-black uppercase tracking-wider"
+                        >
+                          Custom Sub Category
+                        </label>
+                        <input
+                          id="custom-subcategory"
+                          type="text"
+                          value={customSubCategory}
+                          onChange={(event) => {
+                            setCustomSubCategory(event.target.value);
+                            if (event.target.value.trim()) {
+                              setFormErrors((errors) => ({
+                                ...errors,
+                                customSubCategory: undefined,
+                              }));
+                            }
+                          }}
+                          placeholder="Enter subcategory"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                        />
+                        {formErrors.customSubCategory && (
+                          <p className="text-xs text-[#EF4444]">
+                            {formErrors.customSubCategory}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelAddTeam}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-black hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSavingTeam}
+                    className="rounded-xl bg-[#FF4500] px-5 py-2 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50"
+                  >
+                    {editingTeam ? "Update Team" : "Submit Team"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          )}
+
+          {/* MAIN CARD CONTAINER */}
+          {selectedDepartment ? (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="table-container w-full"
+            >
+              {/* Internal Header Bar: Title on Left, Download & Cross on Right */}
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-white">
+                <h3 className="text-base font-bold text-black">Team Members</h3>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void handleExportTeamMembers()}
+                    title="Export team members"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-black"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleClearDepartment}
+                    title="Close"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-black"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {loadingDepartmentEmployees ? (
+                <div className="flex items-center justify-center py-20">
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#FF4500] border-t-transparent" />
+                </div>
+              ) : departmentError ? (
+                <p className="p-8 text-center text-sm font-semibold text-[#EF4444]">
+                  {departmentError}
+                </p>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      {/* Grey Heading Header */}
+                      <tr
+                        className="text-xs uppercase tracking-wider"
+                        style={{
+                          backgroundColor: "#d9d7d7",
+                          fontFamily: "Arial, Helvetica, sans-serif",
+                        }}
+                      >
+                        <th className="py-3 px-3 w-[90px] font-normal text-black">
+                          ACTION
+                        </th>
+                        <th className="py-3 px-3 w-[11%] font-normal text-black">
+                          EMPLOYEE ID
+                        </th>
+                        <th className="py-3 px-3 w-[13%] font-normal text-black">
+                          FIRST NAME
+                        </th>
+                        <th className="py-3 px-3 w-[13%] font-normal text-black">
+                          LAST NAME
+                        </th>
+                        <th className="py-3 px-3 w-[22%] font-normal text-black">
+                          EMAIL
+                        </th>
+                        <th className="py-3 px-3 w-[17%] font-normal text-black">
+                          DEPARTMENT
+                        </th>
+                        <th className="py-3 px-3 w-[18%] font-normal text-black">
+                          DESIGNATION
+                        </th>
+                      </tr>
+
+                      {/* Filter Row */}
+                      <tr className="bg-[#F8FAFD] border-b border-slate-200">
+                        <th className="py-2.5 px-3"></th>
+
+                        {/* ID Filter */}
+                        <th className="py-2.5 px-3">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              placeholder="ID..."
+                              value={idFilter}
+                              onChange={(e) => setIdFilter(e.target.value)}
+                              className="w-full rounded-full border border-slate-300 bg-white pl-3 pr-7 py-1 text-xs text-black placeholder:text-slate-400 focus:border-[#FF4500] focus:outline-none"
+                            />
+                            {idFilter ? (
+                              <button
+                                type="button"
+                                onClick={() => setIdFilter("")}
+                                className="absolute right-2 p-0.5 text-slate-400 hover:text-black"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <Search className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                            )}
                           </div>
-                          <span className="text-foreground/90">{employee.name}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-foreground/70">{employee.email}</td>
-                      <td className="py-3 px-4 text-foreground/70">{employee.department ?? "Unassigned"}</td>
-                      <td className="py-3 px-4 text-foreground/70">{employee.reporting_manager_name ?? "Not assigned"}</td>
-                      <td className="py-3 px-4">
-                        <span className="text-xs px-2 py-1 rounded-full border bg-muted/50 border-border/50 text-muted-foreground">
-                          {normalizedRole ? formatRoleLabel(normalizedRole) : employee.role}
-                        </span>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-                {!teamMembers.length && (
-                  <tr>
-                    <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                      No team records are visible for your current access scope.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </motion.div>
-    </PageWrapper>
+                        </th>
+
+                        {/* First Name Filter */}
+                        <th className="py-2.5 px-3">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              placeholder="First..."
+                              value={firstNameFilter}
+                              onChange={(e) =>
+                                setFirstNameFilter(e.target.value)
+                              }
+                              className="w-full rounded-full border border-slate-300 bg-white pl-3 pr-7 py-1 text-xs text-black placeholder:text-slate-400 focus:border-[#FF4500] focus:outline-none"
+                            />
+                            {firstNameFilter ? (
+                              <button
+                                type="button"
+                                onClick={() => setFirstNameFilter("")}
+                                className="absolute right-2 p-0.5 text-slate-400 hover:text-black"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <Search className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                            )}
+                          </div>
+                        </th>
+
+                        {/* Last Name Filter */}
+                        <th className="py-2.5 px-3">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              placeholder="Last..."
+                              value={lastNameFilter}
+                              onChange={(e) =>
+                                setLastNameFilter(e.target.value)
+                              }
+                              className="w-full rounded-full border border-slate-300 bg-white pl-3 pr-7 py-1 text-xs text-black placeholder:text-slate-400 focus:border-[#FF4500] focus:outline-none"
+                            />
+                            {lastNameFilter ? (
+                              <button
+                                type="button"
+                                onClick={() => setLastNameFilter("")}
+                                className="absolute right-2 p-0.5 text-slate-400 hover:text-black"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <Search className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                            )}
+                          </div>
+                        </th>
+
+                        {/* Email Filter */}
+                        <th className="py-2.5 px-3">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              placeholder="Email..."
+                              value={emailFilter}
+                              onChange={(e) => setEmailFilter(e.target.value)}
+                              className="w-full rounded-full border border-slate-300 bg-white pl-3 pr-7 py-1 text-xs text-black placeholder:text-slate-400 focus:border-[#FF4500] focus:outline-none"
+                            />
+                            {emailFilter ? (
+                              <button
+                                type="button"
+                                onClick={() => setEmailFilter("")}
+                                className="absolute right-2 p-0.5 text-slate-400 hover:text-black"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <Search className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                            )}
+                          </div>
+                        </th>
+
+                        {/* Dept Filter */}
+                        <th className="py-2.5 px-3">
+                          <select
+                            value={deptTableFilter}
+                            onChange={(e) => setDeptTableFilter(e.target.value)}
+                            className="w-full rounded-full border border-slate-300 bg-white px-3 py-1 text-xs text-black focus:border-[#FF4500] focus:outline-none truncate"
+                          >
+                            <option value="">All Depts</option>
+                            {departmentOptions.map((dept) => (
+                              <option key={dept} value={dept}>
+                                {dept}
+                              </option>
+                            ))}
+                          </select>
+                        </th>
+
+                        {/* Designation Filter */}
+                        <th className="py-2.5 px-3">
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              placeholder="Designation..."
+                              value={designationFilter}
+                              onChange={(e) =>
+                                setDesignationFilter(e.target.value)
+                              }
+                              className="w-full rounded-full border border-slate-300 bg-white pl-3 pr-7 py-1 text-xs text-black placeholder:text-slate-400 focus:border-[#FF4500] focus:outline-none"
+                            />
+                            {designationFilter ? (
+                              <button
+                                type="button"
+                                onClick={() => setDesignationFilter("")}
+                                className="absolute right-2 p-0.5 text-slate-400 hover:text-black"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <Search className="absolute right-2.5 w-3 h-3 text-slate-400 pointer-events-none" />
+                            )}
+                          </div>
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {pagination.pageItems.map((employee) => (
+                        <tr
+                          key={employee.id}
+                          className="hover:bg-[#F8FAFC] transition-colors"
+                        >
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                title="View employee"
+                                onClick={() =>
+                                  setViewingDepartmentEmployee(employee)
+                                }
+                                className="p-1 rounded-lg text-[#FF8A00] hover:bg-[#FFF5ED] transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Edit employee"
+                                onClick={() =>
+                                  setEditingDepartmentEmployee(employee)
+                                }
+                                className="p-1 rounded-lg text-[#3B82F6] hover:bg-blue-50 transition-colors"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                title="Delete employee"
+                                onClick={() =>
+                                  setDepartmentEmployeeToDelete(employee)
+                                }
+                                className="p-1 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 font-medium text-xs font-normal text-black truncate">
+                            {employee.employee_id || "—"}
+                          </td>
+                          <td className="py-3 px-3 font-normal text-black truncate">
+                            {employee.first_name || "—"}
+                          </td>
+                          <td className="py-3 px-3 font-normal text-black truncate">
+                            {employee.last_name || "—"}
+                          </td>
+                          <td className="py-3 px-3 font-normal text-black truncate">
+                            {employee.personal_email || "—"}
+                          </td>
+                          <td className="py-3 px-3  font-normal text-black truncate">
+                            {employee.department || "—"}
+                          </td>
+                          <td className="py-3 px-3">                           
+                              {employee.designation || "—"}                            
+                          </td>
+                        </tr>
+                      ))}
+
+                      {!filteredEmployees.length && (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="py-14 text-center text-sm font-normal text-slate-500"
+                          >
+                            No employees found for this department.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Pagination Controls */}
+              {filteredEmployees.length > 0 && (
+                <div className="pt-4 p-4 border-t border-slate-200">
+                  <PaginationControls
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    pageSize={pagination.pageSize}
+                    pageStart={pagination.pageStart}
+                    pageEnd={pagination.pageEnd}
+                    totalItems={filteredEmployees.length}
+                    itemLabel="employees"
+                    onPageSizeChange={pagination.setPageSize}
+                    onPreviousPage={pagination.goToPreviousPage}
+                    onNextPage={pagination.goToNextPage}
+                  />
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
+              <p className="text-sm font-medium text-slate-500">
+                Please select a department above to view and manage team
+                members.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* SUCCESS POPUP */}
+        <Dialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
+          <DialogContent className="max-w-sm rounded-2xl border border-slate-300 bg-white text-center text-black shadow-lg">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-black">
+                {successMessage}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                {successMessage === "Team Updated Successfully"
+                  ? "The team details have been updated."
+                  : "The team has been created successfully."}
+              </DialogDescription>
+            </DialogHeader>
+            <button
+              type="button"
+              onClick={() => setShowSuccessPopup(false)}
+              className="w-full mt-4 rounded-xl bg-[#FF4500] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
+            >
+              OK
+            </button>
+          </DialogContent>
+        </Dialog>
+
+        {/* VIEW ONBOARDING EMPLOYEE MODAL */}
+        <Dialog
+          open={!!viewingDepartmentEmployee}
+          onOpenChange={(open) => {
+            if (!open) setViewingDepartmentEmployee(null);
+          }}
+        >
+          <DialogContent className="max-w-md rounded-2xl border border-slate-300 bg-white text-black shadow-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-black">
+                Employee Profile
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Overview of onboarding personnel profile details.
+              </DialogDescription>
+            </DialogHeader>
+
+            {viewingDepartmentEmployee && (
+              <div className="space-y-3 py-3 text-xs text-black">
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-500">
+                    Employee ID:
+                  </span>
+                  <span className="font-mono font-semibold text-slate-900">
+                    {viewingDepartmentEmployee.employee_id || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-500">Name:</span>
+                  <span className="font-medium text-slate-900">
+                    {[
+                      viewingDepartmentEmployee.first_name,
+                      viewingDepartmentEmployee.last_name,
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-500">Email:</span>
+                  <span className="font-mono text-slate-900">
+                    {viewingDepartmentEmployee.personal_email || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-500">
+                    Department:
+                  </span>
+                  <span className="font-medium text-slate-900">
+                    {viewingDepartmentEmployee.department || "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-2">
+                  <span className="font-semibold text-slate-500">
+                    Designation:
+                  </span>
+                  <span className="capitalize text-[#FF8A00] font-bold">
+                    {viewingDepartmentEmployee.designation || "—"}
+                  </span>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <button
+                type="button"
+                onClick={() => setViewingDepartmentEmployee(null)}
+                className="w-full rounded-xl border border-slate-300 bg-white py-2 text-xs font-bold text-black hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* EDIT DEPARTMENT EMPLOYEE MODAL */}
+        <Dialog
+          open={!!editingDepartmentEmployee}
+          onOpenChange={(open) => {
+            if (!open) setEditingDepartmentEmployee(null);
+          }}
+        >
+          <DialogContent className="max-w-md rounded-2xl border border-slate-300 bg-white text-black shadow-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-black">
+                Edit Employee Details
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Update personnel designation and department.
+              </DialogDescription>
+            </DialogHeader>
+
+            {editingDepartmentEmployee && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                      First Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingDepartmentEmployee.first_name}
+                      onChange={(e) =>
+                        setEditingDepartmentEmployee({
+                          ...editingDepartmentEmployee,
+                          first_name: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                      Last Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editingDepartmentEmployee.last_name}
+                      onChange={(e) =>
+                        setEditingDepartmentEmployee({
+                          ...editingDepartmentEmployee,
+                          last_name: e.target.value,
+                        })
+                      }
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={editingDepartmentEmployee.personal_email || ""}
+                    onChange={(e) =>
+                      setEditingDepartmentEmployee({
+                        ...editingDepartmentEmployee,
+                        personal_email: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-black uppercase tracking-wider">
+                    Designation
+                  </label>
+                  <input
+                    type="text"
+                    value={editingDepartmentEmployee.designation || ""}
+                    onChange={(e) =>
+                      setEditingDepartmentEmployee({
+                        ...editingDepartmentEmployee,
+                        designation: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                  />
+                </div>
+
+                <DialogFooter className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingDepartmentEmployee(null)}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-black hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleUpdateDepartmentEmployee()}
+                    className="rounded-xl bg-[#3B82F6] px-5 py-2 text-xs font-bold text-white hover:brightness-105"
+                  >
+                    Save Changes
+                  </button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* DELETE MODAL */}
+        <Dialog
+          open={!!departmentEmployeeToDelete}
+          onOpenChange={(open) => {
+            if (!open) setDepartmentEmployeeToDelete(null);
+          }}
+        >
+          <DialogContent className="max-w-[420px] rounded-2xl border border-slate-300 bg-white p-6 text-black shadow-lg">
+            <DialogHeader className="space-y-2 text-left">
+              <DialogTitle className="text-base font-bold text-black">
+                Delete Onboarding Record
+              </DialogTitle>
+              <DialogDescription className="text-xs leading-relaxed text-black">
+                Are you sure you want to delete{" "}
+                <span className="text-[#EF4444] font-bold">
+                  {departmentEmployeeToDelete?.first_name}{" "}
+                  {departmentEmployeeToDelete?.last_name}
+                </span>
+                ? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDepartmentEmployeeToDelete(null)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-black hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteDepartmentEmployee()}
+                className="rounded-xl bg-[#EF4444] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all"
+              >
+                Delete
+              </button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </PageWrapper>
+    </div>
   );
 };
 

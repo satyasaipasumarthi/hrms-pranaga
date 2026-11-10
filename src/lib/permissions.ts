@@ -160,7 +160,7 @@ export const hasMinimumDataScope = (
 
 export const getAccessibleNavItems = (permissionMap: PermissionMap): NavItem[] =>
   moduleAccessDefinitions
-    .filter((definition) => definition.routePath && hasModulePermission(permissionMap, definition.module, "view"))
+    .filter((definition) => definition.module !== "leave" && definition.routePath && hasModulePermission(permissionMap, definition.module, "view"))
     .map((definition) => navItemsByModule[definition.module as Exclude<AppModule, "kudos">])
     .filter(Boolean)
     .sort((left, right) => {

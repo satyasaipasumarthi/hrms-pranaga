@@ -34,6 +34,7 @@ interface AttendanceActionsValue {
   handlePauseResume: () => Promise<void>;
   isLoading: boolean;
   isPaused: boolean;
+  isProcessing: boolean;
   isTodayLocked: boolean;
   showEmployeeColumn: boolean;
 }
@@ -50,6 +51,8 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
   const [elapsed, setElapsed] = useState("00:00:00");
   const [attendanceLog, setAttendanceLog] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessingRef = useRef(false);
   const hookInstanceIdRef = useRef(`attendance-actions-${Math.random().toString(36).slice(2)}`);
 
   const canTrackOwnTime = hasModulePermission(permissions, "attendance", "create");
@@ -195,9 +198,12 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
   }, [loadAttendance]);
 
   const handleCheckIn = useCallback(async () => {
-    if (!user) {
+    if (!user || isProcessingRef.current) {
       return;
     }
+
+    isProcessingRef.current = true;
+    setIsProcessing(true);
 
     try {
       const checkInTimestamp = await checkInCurrentUser(user);
@@ -214,13 +220,19 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
         description: getReadableErrorMessage(error, "Unable to complete check-in."),
         variant: "destructive",
       });
+    } finally {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
     }
   }, [syncAfterMutation, user]);
 
   const handleCheckOut = useCallback(async () => {
-    if (!user || !activeShiftDate) {
+    if (!user || !activeShiftDate || isProcessingRef.current) {
       return;
     }
+
+    isProcessingRef.current = true;
+    setIsProcessing(true);
 
     try {
       await checkOutCurrentUser(user, activeShiftDate);
@@ -233,13 +245,19 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
         description: getReadableErrorMessage(error, "Unable to complete check-out."),
         variant: "destructive",
       });
+    } finally {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
     }
   }, [activeShiftDate, clearCheckInCache, resetAttendanceState, syncAfterMutation, user]);
 
   const handlePauseResume = useCallback(async () => {
-    if (!user || !activeShiftDate) {
+    if (!user || !activeShiftDate || isProcessingRef.current) {
       return;
     }
+
+    isProcessingRef.current = true;
+    setIsProcessing(true);
 
     const previousPauseState = {
       isPaused,
@@ -273,6 +291,9 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
         description: getReadableErrorMessage(error, isPaused ? "Unable to resume the shift." : "Unable to pause the shift."),
         variant: "destructive",
       });
+    } finally {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
     }
   }, [activeShiftDate, isPaused, pauseStartTime, syncAfterMutation, totalPausedDurationSeconds, user]);
 
@@ -287,6 +308,7 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
     handlePauseResume,
     isLoading,
     isPaused,
+    isProcessing,
     isTodayLocked,
     showEmployeeColumn,
   };
