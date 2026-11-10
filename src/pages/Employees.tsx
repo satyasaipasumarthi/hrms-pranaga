@@ -141,12 +141,35 @@ const Employees = () => {
   }, [loadEmployees]);
 
   const departmentOptions = useMemo(() => {
-    const list = new Set(DEFAULT_DEPARTMENTS);
-    employees.forEach((emp) => {
-      if (emp.department) list.add(emp.department);
-    });
-    return Array.from(list);
-  }, [employees]);
+  const list = new Set(DEFAULT_DEPARTMENTS);
+  employees.forEach((emp) => {
+    if (emp.department) list.add(emp.department);
+  });
+  return Array.from(list);
+}, [employees]);
+
+const designationOptions = [
+   "Founder & CEO",
+   "General Manager",
+   "Head of Innovations",
+   "Cybersecurity Analyst",
+   "Cyber Security SME",
+   "Operations Head & Web Dev Team Lead",
+   "Sales",
+   "Manager & AIML Lead",
+   "Cybersecurity Intern",
+   "Cyber Security",
+   "Full Stack Developer",
+   "Web Developer",
+   "Web Developer Intern",
+   "AI/ML Intern",
+   "AI/ML",
+   "Director",
+   "Manager",
+   "IT Operations",
+ ];
+
+  
 
   const handleFilterChange = (
     key: keyof typeof initialFilters,
@@ -650,31 +673,24 @@ const Employees = () => {
                         </div>
                       </th>
 
-                      {/* Designation Search */}
-                      <th className="py-2.5 px-3">
-                        <div className="relative flex items-center">
-                          <input
-                            type="text"
-                            value={filters.designation}
-                            onChange={(e) =>
-                              handleFilterChange("designation", e.target.value)
-                            }
-                            placeholder="Designation..."
-                            className="w-full rounded-lg border border-[#CBD5E1] bg-white pl-2.5 pr-6 py-1 text-xs text-black placeholder:text-[#94A3B8] focus:border-[#FF4500] focus:outline-none"
-                          />
-                          {filters.designation ? (
-                            <button
-                              type="button"
-                              onClick={() => handleClearColumn("designation")}
-                              className="absolute right-1.5 p-0.5 text-black hover:text-[#FF4500]"
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          ) : (
-                            <Search className="absolute right-2 w-3 h-3 text-[#94A3B8] pointer-events-none" />
-                          )}
-                        </div>
-                      </th>
+                  {/* Designation Dropdown */}
+<th className="py-2.5 px-3">
+  <select
+    value={filters.designation}
+    onChange={(e) =>
+      handleFilterChange("designation", e.target.value)
+    }
+    className="w-full rounded-lg border border-[#CBD5E1] bg-white px-2 py-1 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+  >
+    <option value="">Select designation</option>
+
+    {designationOptions.map((designation) => (
+      <option key={designation} value={designation}>
+        {designation}
+      </option>
+    ))}
+  </select>
+</th>
                     </tr>
                   </thead>
 
@@ -908,12 +924,14 @@ const Employees = () => {
                     {viewingEmployee.department ?? "Unassigned"}
                   </span>
                 </div>
-                <div className="flex justify-between border-b border-[#E2E8F0] pb-2">
-                  <span className="font-semibold text-slate-500">Role:</span>
-                 
-                    {viewingEmployee.designation ?? "—"}
-                  
-                </div>
+               <div className="flex justify-between border-b border-[#E2E8F0] pb-2">
+  <span className="font-semibold text-slate-500">
+    Designation:
+  </span>
+  <span className="font-medium text-slate-900">
+    {viewingEmployee.designation ?? "—"}
+  </span>
+</div>
               </div>
             )}
 
