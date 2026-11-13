@@ -98,7 +98,7 @@ const PaginationControls = ({
       <div className="flex items-center gap-2">
         <span className="font-medium text-black">Rows per page</span>
         <div ref={menuRef} className="relative inline-flex items-center">
-          <div className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden focus-within:border-[#FF4500]">
+          <div className="inline-flex h-8 items-center rounded-lg border border-slate-300 bg-white shadow-sm overflow-hidden focus-within:border-[#3B82F6]">
             <input
               type="text"
               inputMode="numeric"
@@ -129,9 +129,9 @@ const PaginationControls = ({
                       onPageSizeChange(size);
                       setIsMenuOpen(false);
                     }}
-                    className={`block w-full px-2.5 py-1 text-center text-xs font-medium transition-colors hover:bg-[#FFF5ED] hover:text-[#FF4500] ${
+                    className={`block w-full px-2.5 py-1 text-center text-xs font-medium transition-colors hover:bg-[#DBEAFE] hover:text-[#3B82F6] ${
                       size === pageSize
-                        ? "bg-[#FFF5ED] text-[#FF4500] font-bold"
+                        ? "bg-[#DBEAFE] text-[#3B82F6] font-bold"
                         : "text-black"
                     }`}
                   >
@@ -151,7 +151,7 @@ const PaginationControls = ({
           onClick={onPreviousPage}
           disabled={currentPage === 1}
           aria-label="Go to previous page"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-black shadow-sm transition-colors hover:border-[#FF4500] hover:bg-[#FFF5ED] hover:text-[#FF4500] disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-black"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-black shadow-sm transition-colors hover:border-[#3B82F6] hover:bg-[#DBEAFE] hover:text-[#3B82F6] disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-black"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
@@ -166,7 +166,7 @@ const PaginationControls = ({
           onClick={onNextPage}
           disabled={currentPage === totalPages}
           aria-label="Go to next page"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-black shadow-sm transition-colors hover:border-[#FF4500] hover:bg-[#FFF5ED] hover:text-[#FF4500] disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-black"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-black shadow-sm transition-colors hover:border-[#3B82F6] hover:bg-[#DBEAFE] hover:text-[#3B82F6] disabled:cursor-not-allowed disabled:border-slate-200 disabled:opacity-30 disabled:hover:border-slate-200 disabled:hover:bg-white disabled:hover:text-black"
         >
           <ChevronRight className="h-4 w-4" />
         </button>

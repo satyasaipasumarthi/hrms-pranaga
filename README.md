@@ -505,8 +505,10 @@ When setting up a fresh environment, confirm these items:
 4. run permission fix SQL if live permission rows need syncing
 5. deploy `admin-invite-user`
 6. deploy `admin-delete-user`
-7. verify Supabase Auth `Site URL`
-8. verify Supabase Auth `Redirect URLs`
+7. deploy `admin-update-user`
+8. deploy `admin-update-user-creation`
+9. verify Supabase Auth `Site URL`
+10. verify Supabase Auth `Redirect URLs`
 
 ## Common Commands
 
@@ -520,6 +522,13 @@ Deploy admin delete function:
 
 ```bash
 npx supabase functions deploy admin-delete-user
+```
+
+Deploy user update functions:
+
+```bash
+npx supabase functions deploy admin-update-user
+npx supabase functions deploy admin-update-user-creation
 ```
 
 Set invite redirect:
@@ -564,9 +573,9 @@ Check:
 
 Check:
 
-- `admin-delete-user` function is deployed
+- `admin-delete-user` is deployed to the same Supabase project configured by the frontend
 - function config exists in `supabase/config.toml`
-- user is logged in as admin
+- caller's `profiles.role` is `admin` or `hr`
 
 ## Key Source Files
 

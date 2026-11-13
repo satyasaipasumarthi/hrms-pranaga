@@ -187,6 +187,27 @@ export const fetchOnboardingEmployeeById = async (
   return data;
 };
 
+export interface OrgDashboardCounts {
+  totalEmployees: number;
+  presentToday: number;
+}
+
+/** Organization-wide counts that any signed-in user may see (no personal data). */
+export const fetchOrgDashboardCounts = async (): Promise<OrgDashboardCounts> => {
+  const { data, error } = await supabase.rpc("dashboard_org_counts");
+
+  if (error) {
+    console.error("Failed to fetch organization counts:", error);
+    throw error;
+  }
+
+  const counts = (data ?? {}) as { total_employees?: number; present_today?: number };
+  return {
+    totalEmployees: Number(counts.total_employees) || 0,
+    presentToday: Number(counts.present_today) || 0,
+  };
+};
+
 export const fetchOnboardingDemographics = async (): Promise<
   OnboardingDemographicRecord[]
 > => {
@@ -320,12 +341,9 @@ export const updateDepartmentEmployee = async (
 export const deleteDepartmentEmployee = async (
   employeeId: string,
 ): Promise<void> => {
-  const { error } = await supabase
-    .from("employee_onboarding")
-    .delete()
-    .eq("id", employeeId)
-    .select("id")
-    .single();
+  const { error } = await supabase.rpc("delete_onboarding_employee", {
+    p_employee_id: employeeId,
+  });
 
   if (error) {
     console.error("Failed to delete onboarding employee:", error);
@@ -361,6 +379,7 @@ export interface LeaveRecord {
   approverId: string | null;
   workedOnDate: string | null;
   requestedLeaveOnDate: string | null;
+  createdAt?: string | null;
 }
 
 export interface PayrollRecord {
@@ -2076,6 +2095,7 @@ export const fetchLeaveRecords = async (
       approverId: row.approver_id ? String(row.approver_id) : null,
       workedOnDate: row.worked_on ? String(row.worked_on) : null,
       requestedLeaveOnDate: row.requested_leave_on ? String(row.requested_leave_on) : null,
+      createdAt: row.created_at ? String(row.created_at) : null,
     };
   });
 };

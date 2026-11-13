@@ -112,12 +112,16 @@ Deno.serve(async (req: Request) => {
       return respond({ success: false, message: "Invalid role" }, 400);
     }
 
+    const name = `${firstName} ${lastName}`.trim();
+
     const inviteOptions: {
       data: Record<string, string | null>;
       redirectTo?: string;
     } = {
       data: {
         username,
+        name,
+        full_name: name,
         first_name: firstName,
         last_name: lastName,
         role,
@@ -144,26 +148,25 @@ Deno.serve(async (req: Request) => {
 console.log("Created Auth user:", authResult.user.id);
     createdUserId = authResult.user.id;
 
-    // Assumes the existing Auth trigger creates profiles.id = auth.users.id.
-    // If your trigger uses different columns, adapt this to your schema.
-   {/*} const { data: profile, error: profileError } = await adminClient
+    // Always store the new user in profiles (profiles.id = auth.users.id).
+    // Inserts the row if no auth trigger created it, otherwise overwrites
+    // the email-derived name with the entered details.
+    const { error: profileError } = await adminClient
       .from("profiles")
-      .update({
-        username,
-        email,
-        role,
-        department,
-        shift,
-      })
-      .eq("id", createdUserId)
-      .select("id")
-      .maybeSingle();
-
-    if (profileError || !profile) {
-      throw new Error(
-        `Profile update failed: ${profileError?.message ?? "Profile not found"}`
+      .upsert(
+        {
+          id: createdUserId,
+          name,
+          email,
+          role,
+          department,
+        },
+        { onConflict: "id" },
       );
-    }*/}
+
+    if (profileError) {
+      throw new Error(`Profile save failed: ${profileError.message}`);
+    }
 
     // Save the additional account details in the new table.
     const { error: recordError } = await adminClient

@@ -5,7 +5,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { lazy, Suspense, useEffect, useState } from "react";
 import MainLayout from "@/components/layout/MainLayout";
-import SplashScreen from "@/components/SplashScreen";
 import ProtectedRoute from "@/components/layout/ProtectedRoute";
 import { useAuth } from "@/hooks/useAuth";
 import { hasPendingAuthAction, primePendingAuthAction } from "@/lib/auth-links";
@@ -22,7 +21,8 @@ const Recruitment = lazy(() => import("./pages/Recruitment"));
 const Team = lazy(() => import("./pages/Team"));
 //const WallOfFame = lazy(() => import("./pages/WallOfFame"));
 //const AccessControl = lazy(() => import("./pages/AccessControl"));
-const TicketManagement = lazy(() => import("./pages/TicketManagement"));
+//const TicketDashboard = lazy(() => import("./pages/TicketDashboard"));
+//const CreateTicket = lazy(() => import("./pages/CreateTicket"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -71,13 +71,10 @@ const AuthActionRedirector = () => {
 };
 
 const App = () => {
-  const [showSplash, setShowSplash] = useState(true);
-  const { initialize, isLoading, isAuthenticated } = useAuth();
+  const { initialize, isLoading } = useAuth();
 
   useEffect(() => {
     void initialize();
-    const timer = setTimeout(() => setShowSplash(false), 2000);
-    return () => clearTimeout(timer);
   }, [initialize]);
 
   if (isLoading) return <Loading />;
@@ -87,7 +84,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <SplashScreen show={showSplash && !isAuthenticated} />
+
         <BrowserRouter>
           <AuthActionRedirector />
           <Suspense fallback={<Loading />}>
@@ -96,19 +93,15 @@ const App = () => {
               <Route element={<MainLayout />}>
                 <Route path="/" element={<ProtectedRoute module="dashboard"><Dashboard /></ProtectedRoute>} />
                 <Route path="/attendance" element={<ProtectedRoute module="attendance"><Attendance /></ProtectedRoute>} />
-                <Route path="/leave" element={<Navigate to="/leave/apply" replace />} />
-                <Route path="/leave/apply" element={<ProtectedRoute module="leave"><LeaveApply /></ProtectedRoute>} />
-                <Route path="/leave/operations" element={<ProtectedRoute module="leave"><LeaveOperations /></ProtectedRoute>} />
+                <Route path="/applyleave" element={<ProtectedRoute module="leave"><LeaveApply /></ProtectedRoute>} />
+                <Route path="/leaveoperations" element={<ProtectedRoute module="leave"><LeaveOperations /></ProtectedRoute>} />
+                {/* Old leave URLs redirect to the button-named routes */}
+                <Route path="/leave" element={<Navigate to="/applyleave" replace />} />
+                <Route path="/leave/apply" element={<Navigate to="/applyleave" replace />} />
+                <Route path="/leave/operations" element={<Navigate to="/leaveoperations" replace />} />
                 <Route path="/payroll" element={<ProtectedRoute module="payroll"><Payroll /></ProtectedRoute>} />
-                <Route path="/tickets" element={<TicketManagement />} />
-<Route
-  path="/tickets/new"
-  element={<div className="p-6">Create New Ticket</div>}
-/>
-<Route
-  path="/tickets/:ticketId"
-  element={<div className="p-6">Ticket Details</div>}
-/>
+               
+
                 {/*<Route path="/performance" element={<ProtectedRoute module="performance"><Performance /></ProtectedRoute>} />*/}
 
                 <Route
@@ -124,7 +117,8 @@ const App = () => {
   element={<EmployeeOnboarding />}
 />
                 <Route path="/recruitment" element={<ProtectedRoute module="recruitment"><Recruitment /></ProtectedRoute>} />
-                <Route path="/team" element={<ProtectedRoute module="team"><Team /></ProtectedRoute>} />
+                <Route path="/teams" element={<ProtectedRoute module="team"><Team /></ProtectedRoute>} />
+                <Route path="/team" element={<Navigate to="/teams" replace />} />
                 {/*<Route path="/wall-of-fame" element={<ProtectedRoute module="wall_of_fame"><WallOfFame /></ProtectedRoute>} />*/}
                {/* <Route path="/access-control" element={<ProtectedRoute module="access_control"><AccessControl /></ProtectedRoute>} />*/}
                 <Route path="/settings" element={<ProtectedRoute module="settings"><Settings /></ProtectedRoute>} />

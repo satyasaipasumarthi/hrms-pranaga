@@ -91,7 +91,7 @@ const HRMSSidebar = () => {
         </div>
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-1.5 rounded-md text-black hover:bg-[#FDE5D6] transition-colors flex-shrink-0"
+          className="p-1.5 rounded-md text-[#3B82F6] hover:bg-[#DBEAFE] transition-colors flex-shrink-0"
         >
           {collapsed ? (
             <ChevronRight className="w-4 h-4" />

@@ -24,6 +24,7 @@ import {
   fetchAttendanceRecords,
   fetchLeaveRecords,
   fetchOnboardingDemographics,
+  fetchOrgDashboardCounts,
   fetchPersonalKudos,
   fetchProfilesForScope,
   getScopeForModule,
@@ -548,8 +549,33 @@ const Dashboard = () => {
     OnboardingDemographicRecord[]
   >([]);
   const [personalKudos, setPersonalKudos] = useState<KudosRecord[]>([]);
+  const [orgCounts, setOrgCounts] = useState<{
+    totalEmployees: number;
+    presentToday: number;
+  } | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // Organization-wide counts for employees (their own data scope is "own").
+  useEffect(() => {
+    if (!user || role !== "employee") {
+      setOrgCounts(null);
+      return;
+    }
+
+    let cancelled = false;
+    fetchOrgDashboardCounts()
+      .then((counts) => {
+        if (!cancelled) setOrgCounts(counts);
+      })
+      .catch(() => {
+        if (!cancelled) setOrgCounts(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [role, user]);
 
   // ----------------------------------------------
   // LOAD DASHBOARD DATA
@@ -594,7 +620,11 @@ const Dashboard = () => {
 
           fetchAttendanceRecords(user, permissions),
           fetchLeaveRecords(user, permissions),
-          fetchOnboardingDemographics(),
+          // Don't let a failed headcount fetch blank the rest of the dashboard.
+          fetchOnboardingDemographics().catch((error) => {
+            console.error("Failed to load organization headcount:", error);
+            return [];
+          }),
           fetchPersonalKudos(user),
         ]);
 
@@ -839,14 +869,23 @@ const Dashboard = () => {
           },
         ]
       : [
-          {
-            title: "Team Members",
-            value: teamCount,
-            icon: Users,
-          },
+          role === "employee"
+            ? {
+                title: "Total Employees",
+                value: orgCounts?.totalEmployees ?? onboardingDemographics.length,
+                icon: Users,
+              }
+            : {
+                title: "Team Members",
+                value: teamCount,
+                icon: Users,
+              },
           {
             title: "Present Today",
-            value: todayAttendanceCount,
+            value:
+              role === "employee" && orgCounts
+                ? orgCounts.presentToday
+                : todayAttendanceCount,
             icon: UserCheck,
           },
           {

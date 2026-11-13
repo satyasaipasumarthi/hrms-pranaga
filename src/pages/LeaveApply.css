@@ -40,14 +40,14 @@
 /* leave submission */
 leave-apply-page form button[type="submit"],
 .leave-apply-page .glass-card button[type="submit"] {
-  background-color: #f97316 !important;
-  background: #f97316 !important;
+  background-color: #ff9100 !important;
+  background: #ff9100 !important;
   color: #ffffff !important;
   border: none !important;
 }
 
 .leave-apply-page form button[type="submit"]:hover {
-  background-color: #ea580c !important;
+  background-color: #ff9100 !important;
 }
 
 /* Form controls */

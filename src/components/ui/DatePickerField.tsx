@@ -37,7 +37,7 @@ const DatePickerField = ({
           <button
             type="button"
             className={cn(
-              "flex h-11 w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/35 px-4 text-sm text-foreground outline-none transition-colors focus:border-primary/40 focus:bg-accent/25",
+              "flex h-11 w-full items-center gap-2 rounded-xl border border-border/60 bg-muted/35 px-4 text-sm text-foreground outline-none transition-colors focus:border-secondary/40 focus:bg-accent/25",
               buttonClassName,
             )}
           >

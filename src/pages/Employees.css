@@ -117,7 +117,7 @@ body:has(.dashboard-light-override) #root {
   gap: 8px;
   height: 42px;
   padding: 0 20px;
-  border: none;
+  border: 1px solid #ff9100;
   border-radius: 12px;
   background-color: #ff9100;
   color: #ffffff;
@@ -126,11 +126,11 @@ body:has(.dashboard-light-override) #root {
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: filter 150ms ease;
+  transition: background-color 150ms ease;
 }
 
 .dashboard-light-override .add-employee-btn:hover {
-  filter: brightness(1.05);
+  background-color: #ff9100;
 }
 
 .dashboard-light-override .add-employee-btn .add-employee-icon {
@@ -142,6 +142,9 @@ body:has(.dashboard-light-override) #root {
 
 .dashboard-light-override .add-employee-btn span {
   color: #ffffff;
-  font-size: 16px;
-  font-weight: 700;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }

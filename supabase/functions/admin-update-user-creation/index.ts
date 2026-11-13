@@ -55,8 +55,11 @@ Deno.serve(async (request) => {
     if (callerProfileError) {
       throw callerProfileError;
     }
-    if (callerProfile?.role !== "admin") {
-      return jsonResponse({ error: "Only administrators can update users." }, 403);
+    if (
+      !callerProfile ||
+      !["admin", "hr"].includes(String(callerProfile.role).trim().toLowerCase())
+    ) {
+      return jsonResponse({ error: "Only administrators or HR can update users." }, 403);
     }
 
     const body: unknown = await request.json();
@@ -102,7 +105,7 @@ Deno.serve(async (request) => {
 
     const { data: profile, error: profileError } = await adminClient
       .from("profiles")
-      .select("id, username, name, email, role, department, shift")
+      .select("id, name, email, role, department")
       .eq("id", userId)
       .maybeSingle();
 
@@ -125,7 +128,7 @@ Deno.serve(async (request) => {
 
     const { error: profileUpdateError } = await adminClient
       .from("profiles")
-      .update({ username, name, email, role, department, shift })
+      .update({ name, email, role, department })
       .eq("id", userId);
 
     if (profileUpdateError) {

@@ -113,7 +113,7 @@ const Employees = () => {
   const [editForm, setEditForm] = useState(defaultEditForm);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-  const canDeleteUsers = user?.role === "admin";
+  const canDeleteUsers = user?.role === "admin" || user?.role === "hr";
   const canEditUsers = user?.role === "admin" || user?.role === "hr";
 
   const loadEmployees = useCallback(async () => {
@@ -478,7 +478,7 @@ const designationOptions = [
                   <button
                     type="button"
                     onClick={() => setIsEmployeeGridOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#FF8A00] bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#FFF5ED]"
+                    className="inline-flex items-center gap-2 rounded-lg border border-[#93C5FD] bg-[#DBEAFE] px-4 py-2 text-sm font-semibold text-[#3B82F6] transition-colors hover:bg-[#BFDBFE]"
                   >
                     <LayoutGrid className="h-4 w-4" />
                     Show employee grid
@@ -532,7 +532,7 @@ const designationOptions = [
                             type="button"
                             onClick={resetAllFilters}
                             title="Reset all filters"
-                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FF4500] hover:underline transition-colors"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3B82F6] hover:underline transition-colors"
                           >
                             <RotateCcw className="w-3 h-3" />
                             <span>Reset</span>
@@ -556,7 +556,7 @@ const designationOptions = [
                             <button
                               type="button"
                               onClick={() => handleClearColumn("employeeId")}
-                              className="absolute right-1.5 p-0.5 text-black hover:text-[#FF4500]"
+                              className="absolute right-1.5 p-0.5 text-black hover:text-[#3B82F6]"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -582,7 +582,7 @@ const designationOptions = [
                             <button
                               type="button"
                               onClick={() => handleClearColumn("firstName")}
-                              className="absolute right-1.5 p-0.5 text-black hover:text-[#FF4500]"
+                              className="absolute right-1.5 p-0.5 text-black hover:text-[#3B82F6]"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -608,7 +608,7 @@ const designationOptions = [
                             <button
                               type="button"
                               onClick={() => handleClearColumn("lastName")}
-                              className="absolute right-1.5 p-0.5 text-black hover:text-[#FF4500]"
+                              className="absolute right-1.5 p-0.5 text-black hover:text-[#3B82F6]"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -634,7 +634,7 @@ const designationOptions = [
                             <button
                               type="button"
                               onClick={() => handleClearColumn("email")}
-                              className="absolute right-1.5 p-0.5 text-black hover:text-[#FF4500]"
+                              className="absolute right-1.5 p-0.5 text-black hover:text-[#3B82F6]"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -665,7 +665,7 @@ const designationOptions = [
                             <button
                               type="button"
                               onClick={() => handleClearColumn("department")}
-                              className="absolute right-6 p-0.5 text-black hover:text-[#FF4500]"
+                              className="absolute right-6 p-0.5 text-black hover:text-[#3B82F6]"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -859,7 +859,7 @@ const designationOptions = [
                 type="button"
                 onClick={() => void handleConfirmDelete()}
                 disabled={isDeleting}
-                className="rounded-xl bg-[#EF4444] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all disabled:opacity-50"
+                className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all disabled:opacity-50"
               >
                 {isDeleting ? "Deleting..." : "Delete"}
               </button>

@@ -16,6 +16,7 @@ import {
   type AuthActionType,
 } from "@/lib/auth-links";
 import { supabase } from "@/lib/supabase";
+import "./Login.css";
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -45,21 +46,6 @@ const Login = () => {
 
   const navigate = useNavigate();
   const { login, logout, isLoading } = useAuth();
-
-  // Load Poppins font.
-  useEffect(() => {
-    const fontId = "hrms-poppins-font";
-
-    if (!document.getElementById(fontId)) {
-      const link = document.createElement("link");
-      link.id = fontId;
-      link.rel = "stylesheet";
-      link.href =
-        "https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap";
-
-      document.head.appendChild(link);
-    }
-  }, []);
 
   // Synchronize authentication links.
   useEffect(() => {
@@ -100,7 +86,7 @@ const Login = () => {
     }
 
     return {
-      title: "HRMS Login",
+      title: "Internal Portal",
       description: "Sign in to access your account",
       buttonLabel: "Sign In",
     };
@@ -263,8 +249,7 @@ const Login = () => {
 
   return (
     <div
-      className="flex min-h-screen w-full items-center justify-center bg-[#edf0f5] px-4 py-8 sm:px-6"
-      style={{ fontFamily: "'Poppins', sans-serif" }}
+      className="flex min-h-screen w-full items-center justify-center bg-white px-4 py-8 font-body sm:px-6"
     >
       <motion.div
         initial={{ opacity: 0, y: 15 }}
@@ -272,28 +257,17 @@ const Login = () => {
         transition={{ duration: 0.4 }}
         className="w-full max-w-[430px]"
       >
-        {/* HRMS Login Heading */}
+        {/* INTERNAL PORTAL HEADING */}
         <h1
-          className="mb-8 text-center text-[32px] font-bold leading-tight tracking-tight text-[#263650] sm:text-[38px]"
-          style={{
-            fontFamily: "'Poppins', sans-serif",
-            fontWeight: 700,
-          }}
+          className="mb-8 text-center font-heading text-[32px] font-bold leading-tight tracking-tight text-black sm:text-[38px]"
         >
-          {isPasswordSetupMode ? (
-            screenCopy.title
-          ) : (
-            <>
-              <span>HRMS</span>
-              <span className="ml-2">Login</span>
-            </>
-          )}
+          {screenCopy.title}
         </h1>
 
         {/* Login Card */}
-        <div className="rounded-2xl border border-[#e5e2ce] bg-[#fffef7] px-6 py-8 shadow-[0_8px_30px_rgba(31,41,55,0.08)] sm:px-9 sm:py-9">
+        <div className="rounded-2xl border border-[#D9D9D9] bg-white px-6 py-8 shadow-[0_8px_30px_rgba(31,41,55,0.08)] sm:px-9 sm:py-9">
 
-          <p className="mb-8 text-center text-sm font-normal text-[#666b75] sm:text-base">
+          <p className="mb-8 text-center text-sm font-normal text-[#52647D] sm:text-base">
             {screenCopy.description}
           </p>
 
@@ -305,7 +279,7 @@ const Login = () => {
               <div>
                 <label
                   htmlFor="new-password"
-                  className="mb-2 block text-sm font-medium text-[#263650]"
+                  className="mb-2 block text-sm font-medium text-black"
                 >
                   New Password
                 </label>
@@ -322,7 +296,7 @@ const Login = () => {
                     autoComplete="new-password"
                     minLength={MIN_PASSWORD_LENGTH}
                     required
-                    className="h-[50px] w-full rounded-lg border border-[#d5d8df] bg-white px-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#a0a5ae] focus:border-[#337ab7] focus:ring-2 focus:ring-[#337ab7]/15"
+                    className="login-field h-[50px] w-full rounded-lg border border-[#D9D9D9] bg-white px-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#858B96] focus:border-[#E87532] focus:ring-2 focus:ring-[#E87532]/15"
                   />
 
                   <button
@@ -333,7 +307,7 @@ const Login = () => {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#777]"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#858B96] transition hover:text-[#E87532]"
                   >
                     {showPassword ? (
                       <EyeOff size={19} />
@@ -347,7 +321,7 @@ const Login = () => {
               <div>
                 <label
                   htmlFor="confirm-password"
-                  className="mb-2 block text-sm font-medium text-[#263650]"
+                  className="mb-2 block text-sm font-medium text-black"
                 >
                   Confirm Password
                 </label>
@@ -366,7 +340,7 @@ const Login = () => {
                     autoComplete="new-password"
                     minLength={MIN_PASSWORD_LENGTH}
                     required
-                    className="h-[50px] w-full rounded-lg border border-[#d5d8df] bg-white px-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#a0a5ae] focus:border-[#337ab7] focus:ring-2 focus:ring-[#337ab7]/15"
+                    className="login-field h-[50px] w-full rounded-lg border border-[#D9D9D9] bg-white px-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#858B96] focus:border-[#E87532] focus:ring-2 focus:ring-[#E87532]/15"
                   />
 
                   <button
@@ -379,7 +353,7 @@ const Login = () => {
                         ? "Hide password"
                         : "Show password"
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#777]"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#858B96] transition hover:text-[#E87532]"
                   >
                     {showConfirmPassword ? (
                       <EyeOff size={19} />
@@ -393,7 +367,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={isPasswordSubmitting || isLoading}
-                className="flex h-[50px] w-full items-center justify-center rounded-lg bg-[#337ab7] text-sm font-semibold text-white transition hover:bg-[#286090] disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[50px] w-full items-center justify-center rounded-lg bg-[#FF4500] text-sm font-semibold text-white transition hover:bg-[#FF8A00] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isPasswordSubmitting
                   ? "Saving..."
@@ -409,7 +383,7 @@ const Login = () => {
               <div>
                 <label
                   htmlFor="email"
-                  className="mb-2 block text-sm font-medium text-[#263650]"
+                  className="mb-2 block text-sm font-medium text-black"
                 >
                   Email Address
                 </label>
@@ -425,14 +399,14 @@ const Login = () => {
                     placeholder="Enter your email"
                     autoComplete="email"
                     required
-                    className="h-[50px] w-full rounded-lg border border-[#d5d8df] bg-white py-3 pl-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#a0a5ae] focus:border-[#337ab7] focus:ring-2 focus:ring-[#337ab7]/15"
+                    className="login-field h-[50px] w-full rounded-lg border border-[#D9D9D9] bg-white py-3 pl-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#858B96] focus:border-[#E87532] focus:ring-2 focus:ring-[#E87532]/15"
                   />
 
                   <Mail
                     size={19}
                     strokeWidth={1.8}
                     aria-hidden="true"
-                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#858b96]"
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#858B96]"
                   />
                 </div>
               </div>
@@ -441,7 +415,7 @@ const Login = () => {
               <div>
                 <label
                   htmlFor="password"
-                  className="mb-2 block text-sm font-medium text-[#263650]"
+                  className="mb-2 block text-sm font-medium text-black"
                 >
                   Password
                 </label>
@@ -457,7 +431,7 @@ const Login = () => {
                     placeholder="Enter your password"
                     autoComplete="current-password"
                     required
-                    className="h-[50px] w-full rounded-lg border border-[#d5d8df] bg-white py-3 pl-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#a0a5ae] focus:border-[#337ab7] focus:ring-2 focus:ring-[#337ab7]/15"
+                    className="login-field h-[50px] w-full rounded-lg border border-[#D9D9D9] bg-white py-3 pl-4 pr-12 text-sm text-[#333] outline-none transition placeholder:text-[#858B96] focus:border-[#E87532] focus:ring-2 focus:ring-[#E87532]/15"
                   />
 
                   <button
@@ -468,7 +442,7 @@ const Login = () => {
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#858b96] transition hover:text-[#337ab7]"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#858B96] transition hover:text-[#E87532]"
                   >
                     {showPassword ? (
                       <EyeOff size={19} />
@@ -488,7 +462,7 @@ const Login = () => {
                     onChange={(event) =>
                       setRememberMe(event.target.checked)
                     }
-                    className="h-4 w-4 cursor-pointer accent-[#337ab7]"
+                    className="h-4 w-4 cursor-pointer accent-[#E87532]"
                   />
                   Remember Me
                 </label>
@@ -496,7 +470,7 @@ const Login = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex h-[46px] w-full items-center justify-center rounded-lg bg-[#337ab7] px-8 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#286090] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[130px]"
+                  className="flex h-[46px] w-full items-center justify-center rounded-lg bg-[#ff9100] px-8 text-sm font-semibold text-white shadow-sm transition duration-200 hover:bg-[#ff9100] hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:min-w-[130px]"
                 >
                   {isLoading
                     ? "Signing in..."
@@ -505,12 +479,12 @@ const Login = () => {
               </div>
 
               {/* Forgot Password */}
-              <div className="border-t border-[#e8e5d8] pt-5">
+              <div className="border-t border-[#D9D9D9] pt-5">
                 <button
                   type="button"
                   onClick={() => void handleForgotPassword()}
                   disabled={isPasswordSubmitting}
-                  className="text-sm font-medium text-[#337ab7] transition hover:text-[#23527c] hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                  className="text-sm font-medium text-black transition hover:text-black hover:underline disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Forgot your password?
                 </button>
@@ -520,7 +494,7 @@ const Login = () => {
         </div>
 
         {/* Footer */}
-        <p className="mt-6 text-center text-xs font-normal tracking-wide text-[#858b96] sm:text-sm">
+        <p className="mt-6 text-center text-xs font-normal tracking-wide text-[#858B96] sm:text-sm">
           HRMS Employee Management System
         </p>
       </motion.div>

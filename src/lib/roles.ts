@@ -95,7 +95,7 @@ const grant = (
 
 export const moduleAccessDefinitions: ModuleAccessDefinition[] = [
   { module: "dashboard", label: "Dashboard", routePath: "/", sortOrder: 10, isEnabled: true },
-  { module: "team", label: "Team", routePath: "/team", sortOrder: 20, isEnabled: true },
+  { module: "team", label: "Team", routePath: "/teams", sortOrder: 20, isEnabled: true },
   { module: "attendance", label: "Attendance", routePath: "/attendance", sortOrder: 30, isEnabled: true },
   { module: "leave", label: "Leave", routePath: "/leave", sortOrder: 40, isEnabled: true },
   { module: "payroll", label: "Payroll", routePath: "/payroll", sortOrder: 50, isEnabled: true },
@@ -110,7 +110,7 @@ export const moduleAccessDefinitions: ModuleAccessDefinition[] = [
 
 export const navItemsByModule: Record<Exclude<AppModule, "kudos">, NavItem> = {
   dashboard: { label: "Dashboard", icon: LayoutDashboard, path: "/", module: "dashboard" },
-  team: { label: "Team", icon: UsersRound, path: "/team", module: "team" },
+  team: { label: "Team", icon: UsersRound, path: "/teams", module: "team" },
   attendance: { label: "Attendance", icon: Clock, path: "/attendance", module: "attendance" },
   leave: { label: "Leave", icon: CalendarOff, path: "/leave", module: "leave" },
   payroll: { label: "Payroll", icon: DollarSign, path: "/payroll", module: "payroll" },
@@ -155,7 +155,7 @@ export const defaultRolePermissions: Record<AppRole, ModulePermission[]> = {
     grant("leave", { canView: true, canCreate: true, canUpdate: true, canApprove: true, dataScope: "organization" }),
     grant("payroll", { canView: true, canUpdate: true, dataScope: "organization" }),
     //grant("performance", { canView: true, canUpdate: true, dataScope: "organization" }),
-    grant("employees", { canView: true,canCreate: true, canUpdate: true, canDelete: false,dataScope: "organization" }),
+    grant("employees", { canView: true,canCreate: true, canUpdate: true, canDelete: true,dataScope: "organization" }),
     grant("recruitment", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "organization" }),
      grant("settings", { canView: true, canCreate: true, canUpdate: true, canDelete: true, dataScope: "all" }),
     grant("wall_of_fame", { canView: true, dataScope: "organization" }),

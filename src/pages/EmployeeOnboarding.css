@@ -563,35 +563,47 @@
 
 .employee-onboarding .eo-button-primary {
   border: none;
-  background: #ff4500;
+  background: #3b82f6;
   color: #ffffff;
 }
 
 .employee-onboarding .eo-button-primary:hover {
-  background: #ff5722;
+  background: #2563eb;
 }
 
 .employee-onboarding .eo-button-secondary {
-  border: 1px solid var(--eo-border);
-  background: #ffffff;
-  color: #000000;
+  border: 1px solid #93c5fd;
+  background: #dbeafe;
+  color: #3b82f6;
 }
 
 .employee-onboarding .eo-button-secondary:hover {
-  border-color: #ff8a00;
-  background: #fff8f5;
-  color: #ff4500;
+  border-color: #60a5fa;
+  background: #bfdbfe;
+  color: #2563eb;
+}
+
+.employee-onboarding .eo-page-top .eo-button-secondary {
+  border-color: #ff9100;
+  background: #ff9100;
+  color: #ffffff;
+}
+
+.employee-onboarding .eo-page-top .eo-button-secondary:hover {
+  border-color: #ff9100;
+  background: #ff9100;
+  color: #ffffff;
 }
 
 .employee-onboarding .eo-button-ghost {
   border: 1px solid transparent;
   background: transparent;
-  color: #555555;
+  color: #3b82f6;
 }
 
 .employee-onboarding .eo-button-ghost:hover {
-  background: var(--eo-orange-soft);
-  color: #ff4500;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .employee-onboarding .eo-footer-note {

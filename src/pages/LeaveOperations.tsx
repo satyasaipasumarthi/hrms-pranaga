@@ -433,7 +433,7 @@ const LeaveOperations = () => {
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100"
+                  className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-600 hover:bg-blue-100"
                 >
                   <X className="h-3 w-3" />
                   Clear Filters
@@ -446,7 +446,7 @@ const LeaveOperations = () => {
                 disabled={isLoading || filteredLeaves.length === 0}
                 title="Export leave requests"
                 aria-label="Export leave requests"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#FF8A00] bg-white text-black transition-colors hover:bg-[#FF4500] hover:text-white disabled:opacity-50"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#93C5FD] bg-[#DBEAFE] text-[#3B82F6] transition-colors hover:bg-[#3B82F6] hover:text-white disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
               </button>
@@ -642,7 +642,7 @@ const LeaveOperations = () => {
                               onClick={() =>
                                 setEditingLeave(leave)
                               }
-                              className="rounded-lg p-1 text-[#3B82F6] transition-colors hover:bg-blue-50"
+                              className="rounded-lg p-1 text-[#EF4444] transition-colors hover:bg-red-50"
                             >
                               <Pencil className="h-4 w-4" />
                             </button>
@@ -656,7 +656,7 @@ const LeaveOperations = () => {
                               onClick={() =>
                                 setDeletingLeave(leave)
                               }
-                              className="rounded-lg p-1 text-[#EF4444] transition-colors hover:bg-red-50"
+                              className="rounded-lg p-1 text-[#3B82F6] transition-colors hover:bg-blue-50"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
@@ -760,7 +760,7 @@ const LeaveOperations = () => {
                 onClick={() => void handleExportBalances()}
                 title="Export leave balances"
                 aria-label="Export leave balances"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#FF8A00] bg-white text-black hover:bg-[#FF4500] hover:text-white"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#93C5FD] bg-[#DBEAFE] text-[#3B82F6] hover:bg-[#3B82F6] hover:text-white"
               >
                 <Download className="h-4 w-4" />
               </button>

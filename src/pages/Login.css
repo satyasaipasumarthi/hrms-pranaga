@@ -1,0 +1,14 @@
+.login-field:-webkit-autofill,
+.login-field:-webkit-autofill:hover,
+.login-field:-webkit-autofill:focus,
+.login-field:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #FEF0E7 inset;
+  -webkit-text-fill-color: #333;
+  caret-color: #333;
+}
+
+.login-field:autofill {
+  box-shadow: 0 0 0 1000px #FEF0E7 inset;
+  color: #333;
+  caret-color: #333;
+}

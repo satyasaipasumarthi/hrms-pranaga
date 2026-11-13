@@ -39,6 +39,7 @@ const clearCheckInCache = (userId?: string | null) => {
 
   for (let index = 0; index < localStorage.length; index += 1) {
     const key = localStorage.key(index);
+
     if (key?.startsWith("hrms_checkin_")) {
       if (!userId || key === `hrms_checkin_${userId}`) {
         keysToRemove.push(key);
@@ -49,7 +50,10 @@ const clearCheckInCache = (userId?: string | null) => {
   keysToRemove.forEach((key) => localStorage.removeItem(key));
 };
 
-const applySignedOutState = (set: (partial: Partial<AuthState>) => void, accessError: string | null = null) => {
+const applySignedOutState = (
+  set: (partial: Partial<AuthState>) => void,
+  accessError: string | null = null,
+) => {
   set({
     ...defaultState,
     accessError,
@@ -76,31 +80,51 @@ const hydrateAccessContext = async (
   return true;
 };
 
-const attachAuthListener = (set: (partial: Partial<AuthState>) => void) => {
+const attachAuthListener = (
+  set: (partial: Partial<AuthState>) => void,
+) => {
   if (authSubscription) {
     return;
   }
 
   const listener = supabase.auth.onAuthStateChange((event, session) => {
-    // Invite/recovery links create a session only so the password can be set;
-    // the user must sign in again afterwards instead of landing in the app.
-    if (typeof window !== "undefined" && hasPendingAuthAction(window.location.hash, window.location.search)) {
+    // Invite/recovery links create a session only so the password can be set.
+    // The user must sign in again afterwards instead of landing in the app.
+    if (
+      typeof window !== "undefined" &&
+      hasPendingAuthAction(window.location.hash, window.location.search)
+    ) {
       return;
     }
 
     void Promise.resolve().then(async () => {
-      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") && session?.user) {
+      if (
+        (event === "SIGNED_IN" ||
+          event === "TOKEN_REFRESHED" ||
+          event === "USER_UPDATED") &&
+        session?.user
+      ) {
         set({ isLoading: true });
 
         try {
-          const hydrated = await hydrateAccessContext(session.user.id, set);
+          const hydrated = await hydrateAccessContext(
+            session.user.id,
+            set,
+          );
+
           if (!hydrated) {
             await supabase.auth.signOut();
           }
         } catch (error) {
           console.error("Auth state refresh error:", error);
           await supabase.auth.signOut();
-          applySignedOutState(set, error instanceof Error ? error.message : "Session refresh failed.");
+
+          applySignedOutState(
+            set,
+            error instanceof Error
+              ? error.message
+              : "Session refresh failed.",
+          );
         } finally {
           set({ isLoading: false });
         }
@@ -120,11 +144,17 @@ const attachAuthListener = (set: (partial: Partial<AuthState>) => void) => {
 export const useAuth = create<AuthState>((set, get) => ({
   ...defaultState,
   isLoading: true,
+
   login: async (email, password) => {
     set({ isLoading: true, accessError: null });
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
       if (error) {
         throw error;
       }
@@ -135,20 +165,34 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
 
       const hydrated = await hydrateAccessContext(data.user.id, set);
+
       if (!hydrated) {
         await supabase.auth.signOut();
-        return { success: false, error: "Role access could not be resolved." };
+
+        return {
+          success: false,
+          error: "Role access could not be resolved.",
+        };
       }
 
       return { success: true };
     } catch (error) {
       console.error("Login error:", error);
-      applySignedOutState(set, error instanceof Error ? error.message : "Login failed.");
-      return { success: false, error: error instanceof Error ? error.message : "Login failed." };
+
+      applySignedOutState(
+        set,
+        error instanceof Error ? error.message : "Login failed.",
+      );
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Login failed.",
+      };
     } finally {
       set({ isLoading: false });
     }
   },
+
   logout: async () => {
     const currentUserId = get().user?.id ?? null;
 
@@ -162,6 +206,8 @@ export const useAuth = create<AuthState>((set, get) => ({
       console.error("Logout error:", error);
     }
   },
+
+  // Restore the existing Supabase session on application startup.
   initialize: async () => {
     if (initializePromise) {
       return initializePromise;
@@ -180,10 +226,21 @@ export const useAuth = create<AuthState>((set, get) => ({
           throw error;
         }
 
-        if (session?.user && typeof window !== "undefined" && hasPendingAuthAction(window.location.hash, window.location.search)) {
+        if (
+          session?.user &&
+          typeof window !== "undefined" &&
+          hasPendingAuthAction(
+            window.location.hash,
+            window.location.search,
+          )
+        ) {
           applySignedOutState(set);
         } else if (session?.user) {
-          const hydrated = await hydrateAccessContext(session.user.id, set);
+          const hydrated = await hydrateAccessContext(
+            session.user.id,
+            set,
+          );
+
           if (!hydrated) {
             await supabase.auth.signOut();
           }
@@ -192,7 +249,13 @@ export const useAuth = create<AuthState>((set, get) => ({
         }
       } catch (error) {
         console.error("Initialization error:", error);
-        applySignedOutState(set, error instanceof Error ? error.message : "Authentication bootstrap failed.");
+
+        applySignedOutState(
+          set,
+          error instanceof Error
+            ? error.message
+            : "Authentication bootstrap failed.",
+        );
       } finally {
         set({ isLoading: false });
         attachAuthListener(set);
@@ -202,8 +265,10 @@ export const useAuth = create<AuthState>((set, get) => ({
 
     return initializePromise;
   },
+
   refreshAccess: async () => {
     const currentUser = get().user;
+
     if (!currentUser) {
       return false;
     }
@@ -211,7 +276,11 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true, accessError: null });
 
     try {
-      const hydrated = await hydrateAccessContext(currentUser.id, set);
+      const hydrated = await hydrateAccessContext(
+        currentUser.id,
+        set,
+      );
+
       if (!hydrated) {
         await supabase.auth.signOut();
         return false;
@@ -220,11 +289,19 @@ export const useAuth = create<AuthState>((set, get) => ({
       return true;
     } catch (error) {
       console.error("Access refresh error:", error);
-      set({ accessError: error instanceof Error ? error.message : "Access refresh failed." });
+
+      set({
+        accessError:
+          error instanceof Error
+            ? error.message
+            : "Access refresh failed.",
+      });
+
       return false;
     } finally {
       set({ isLoading: false });
     }
   },
+
   clearAccessError: () => set({ accessError: null }),
 }));

@@ -32,8 +32,8 @@ const GlowButton = ({
 
   const variants = {
     primary: glow
-      ? "bg-primary text-primary-foreground hover:shadow-[0_0_25px_hsl(18_100%_59%/0.4)] active:scale-[0.98]"
-      : "bg-primary text-primary-foreground hover:bg-primary/90",
+      ? "bg-secondary text-secondary-foreground hover:shadow-[0_0_25px_hsl(217_91%_60%/0.4)] active:scale-[0.98]"
+      : "bg-secondary text-secondary-foreground hover:bg-secondary/90",
     secondary: glow
       ? "bg-secondary/20 text-secondary border border-secondary/30 hover:bg-secondary/30 hover:shadow-[0_0_20px_hsl(217_91%_60%/0.3)]"
       : "bg-secondary/20 text-secondary border border-secondary/30 hover:bg-secondary/30",

@@ -367,45 +367,45 @@ const Team = () => {
           <button
             type="button"
             onClick={() => setShowAddTeamForm(true)}
-            className="inline-flex h-10 items-center gap-2 rounded-xl px-5 text-xs font-bold shadow-sm transition-all hover:brightness-105 cursor-pointer"
-            style={{
-              backgroundColor: "#FF4500",
-              color: "#FFFFFF",
-              border: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              visibility: "visible",
-              opacity: 1,
-            }}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#ff9100] bg-[#ff9100] px-5 font-heading text-xs font-medium tracking-wider uppercase text-white shadow-sm transition-colors hover:bg-[#ff9100]"
           >
-            <Plus className="h-4 w-4" style={{ color: "#FFFFFF" }} />
-            <span style={{ color: "#FFFFFF", fontWeight: "bold" }}>
+            <Plus className="h-4 w-4" />
+            <span>
               Add Team
             </span>
           </button>
         }
       >
         <div className="space-y-6">
-          {/* DEPARTMENT SELECT BAR */}
-          <div className="w-full sm:w-[320px] space-y-1.5">
-            <label className="text-xs font-bold text-black uppercase tracking-wider">
-              Department
-            </label>
-            <Select
-              value={selectedDepartment}
-              onValueChange={handleDepartmentChange}
-            >
-              <SelectTrigger   className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
-                <SelectValue placeholder="Select a department" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-slate-200 text-black shadow-lg">
-                {departmentOptions.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
+          {/* DEPARTMENT GRID */}
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-base font-bold uppercase tracking-wider text-black">
+                Departments
+              </h2>
+             
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              {departmentOptions.map((dept) => {
+                const isSelected = selectedDepartment === dept;
+
+                return (
+                  <button
+                    key={dept}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => void handleDepartmentChange(dept)}
+                    className={`min-h-16 rounded-xl border px-4 py-3 text-left text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3B82F6] focus-visible:ring-offset-2 ${
+                      isSelected
+                        ? "border-[#93C5FD] bg-[#DBEAFE] text-[#3B82F6]"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-[#3B82F6] hover:bg-[#EFF6FF]"
+                    }`}
+                  >
                     {dept}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* ADD / EDIT TEAM FORM */}
@@ -569,14 +569,14 @@ const Team = () => {
                   <button
                     type="button"
                     onClick={handleCancelAddTeam}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-black hover:bg-slate-50"
+                    className="rounded-xl border border-[#ff9100] bg-[#ff9100] px-4 py-2 text-xs font-bold text-white hover:bg-[#ff9100]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSavingTeam}
-                    className="rounded-xl bg-[#FF4500] px-5 py-2 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50"
+                    className="rounded-xl bg-[#ff9100] px-5 py-2 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50"
                   >
                     {editingTeam ? "Update Team" : "Submit Team"}
                   </button>
@@ -832,7 +832,7 @@ const Team = () => {
                                 onClick={() =>
                                   setEditingDepartmentEmployee(employee)
                                 }
-                                className="p-1 rounded-lg text-[#3B82F6] hover:bg-blue-50 transition-colors"
+                                className="p-1 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors"
                               >
                                 <Pencil className="w-4 h-4" />
                               </button>
@@ -842,7 +842,7 @@ const Team = () => {
                                 onClick={() =>
                                   setDepartmentEmployeeToDelete(employee)
                                 }
-                                className="p-1 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors"
+                                className="p-1 rounded-lg text-[#3B82F6] hover:bg-blue-50 transition-colors"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -903,14 +903,7 @@ const Team = () => {
                 </div>
               )}
             </motion.div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">
-              <p className="text-sm font-medium text-slate-500">
-                Please select a department above to view and manage team
-                members.
-              </p>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* SUCCESS POPUP */}
@@ -929,7 +922,7 @@ const Team = () => {
             <button
               type="button"
               onClick={() => setShowSuccessPopup(false)}
-              className="w-full mt-4 rounded-xl bg-[#FF4500] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
+              className="w-full mt-4 rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
             >
               OK
             </button>
@@ -1145,14 +1138,14 @@ const Team = () => {
               <button
                 type="button"
                 onClick={() => setDepartmentEmployeeToDelete(null)}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-black hover:bg-slate-50 transition-colors"
+                className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-600 hover:bg-blue-100 transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={() => void handleDeleteDepartmentEmployee()}
-                className="rounded-xl bg-[#EF4444] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all"
+                className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 transition-all"
               >
                 Delete
               </button>

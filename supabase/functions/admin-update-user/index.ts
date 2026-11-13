@@ -78,8 +78,11 @@ Deno.serve(async (request) => {
       throw callerProfileError;
     }
 
-    if (!callerProfile || callerProfile.role !== "admin") {
-      return jsonResponse({ error: "Only administrators can edit users." }, 403);
+    if (
+      !callerProfile ||
+      !["admin", "hr"].includes(String(callerProfile.role).trim().toLowerCase())
+    ) {
+      return jsonResponse({ error: "Only administrators or HR can edit users." }, 403);
     }
 
     const payload = (await request.json()) as {

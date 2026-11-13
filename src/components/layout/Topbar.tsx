@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Clock, LogOut } from "lucide-react";
+import { Clock, LogOut } from "lucide-react";
 import GlowButton from "@/components/ui/GlowButton";
+import NotificationBell from "@/components/layout/NotificationBell";
 import { useAttendanceActions } from "@/hooks/useAttendanceActions";
 import { useAuth } from "@/hooks/useAuth";
 import { formatRoleLabel } from "@/lib/roles";
@@ -76,7 +77,7 @@ const Topbar = () => {
             }
             variant="primary"
             glow={false}
-            className="h-10 min-w-[6.75rem] px-4 py-0 text-xs whitespace-nowrap"
+            className="h-10 min-w-[6.75rem] px-4 py-0 text-xs whitespace-nowrap !bg-[#FF4500] hover:!bg-[#FF8A00]"
           >
             Check In
           </GlowButton>
@@ -95,16 +96,13 @@ const Topbar = () => {
             disabled={!canTrackOwnTime || !checkedIn || isProcessing}
             variant="primary"
             glow={false}
-            className="h-10 min-w-[7.25rem] px-4 py-0 text-xs whitespace-nowrap"
+            className="h-10 min-w-[7.25rem] px-4 py-0 text-xs whitespace-nowrap !bg-[#FF4500] hover:!bg-[#FF8A00]"
           >
             Check Out
           </GlowButton>
         </div>
 
-        <button className="relative p-2 rounded-lg hover:bg-accent transition-colors">
-          <Bell className="w-5 h-5 text-muted-foreground" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-primary rounded-full" />
-        </button>
+        <NotificationBell />
 
         <span className="text-xs font-heading tracking-wider uppercase px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
           {roleBadge}
@@ -149,7 +147,7 @@ const Topbar = () => {
                     onClick={handleLogout}
                     className={cn(
                       "flex items-center gap-2.5 w-full px-3 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer",
-                      "text-destructive hover:bg-destructive/10",
+                      "text-secondary hover:bg-secondary/10",
                     )}
                   >
                     <LogOut className="w-4 h-4 flex-shrink-0" />

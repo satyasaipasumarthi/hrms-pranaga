@@ -59,6 +59,7 @@ const Settings = () => {
   const canManageUsers =
     canManageSettings(permissions) &&
     ["admin", "hr"].includes(user?.role ?? "");
+  const canDeleteUsers = ["admin", "hr"].includes(user?.role ?? "");
 
   const [admins, setAdmins] = useState<UserCreationRecord[]>([]);
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
@@ -244,6 +245,16 @@ const Settings = () => {
 
   const handleDeleteUser = async () => {
     if (!adminToDelete) {
+      return;
+    }
+
+    if (!canDeleteUsers) {
+      toast({
+        title: "Permission denied",
+        description: "Only administrators and HR can delete users.",
+        variant: "destructive",
+      });
+      setAdminToDelete(null);
       return;
     }
 
@@ -503,20 +514,22 @@ const Settings = () => {
 
                                 setAdminToEdit(item);
                               }}
-                              className="p-1 rounded-lg text-[#3B82F6] hover:bg-blue-50 transition-colors"
+                              className="p-1 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors"
                               title="Edit User"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
 
-                            <button
-                              type="button"
-                              onClick={() => setAdminToDelete(item)}
-                              className="p-1 rounded-lg text-[#EF4444] hover:bg-red-50 transition-colors"
-                              title="Delete User"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {canDeleteUsers && (
+                              <button
+                                type="button"
+                                onClick={() => setAdminToDelete(item)}
+                                className="p-1 rounded-lg text-[#3B82F6] hover:bg-blue-50 transition-colors"
+                                title="Delete User"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -905,7 +918,7 @@ const Settings = () => {
                 type="button"
                 onClick={() => void handleDeleteUser()}
                 disabled={isDeletingUser}
-                className="rounded-xl bg-[#EF4444] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 disabled:opacity-50"
+                className="rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white shadow-sm hover:brightness-110 disabled:opacity-50"
               >
                 {isDeletingUser ? "Deleting..." : "Delete User"}
               </button>
@@ -1072,7 +1085,7 @@ const Settings = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="rounded-xl bg-[#FF4500] px-5 py-2 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50"
+                  className="rounded-xl bg-[#ff9100] px-5 py-2 text-xs font-bold text-white hover:bg-[#ff9100] disabled:opacity-50"
                 >
                   {isSubmitting ? "Creating..." : "Submit"}
                 </button>
@@ -1095,7 +1108,7 @@ const Settings = () => {
             <button
               type="button"
               onClick={() => setIsSuccessOpen(false)}
-              className="w-full mt-4 rounded-xl bg-[#FF4500] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
+              className="w-full mt-4 rounded-xl bg-[#3B82F6] px-4 py-2 text-xs font-bold text-white hover:brightness-105"
             >
               OK
             </button>

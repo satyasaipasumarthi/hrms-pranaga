@@ -37,6 +37,7 @@ interface AttendanceActionsValue {
   isProcessing: boolean;
   isTodayLocked: boolean;
   showEmployeeColumn: boolean;
+  refetchAttendance: () => Promise<void>;
 }
 
 const AttendanceActionsContext = createContext<AttendanceActionsValue | null>(null);
@@ -311,6 +312,7 @@ const useAttendanceActionsState = (): AttendanceActionsValue => {
     isProcessing,
     isTodayLocked,
     showEmployeeColumn,
+    refetchAttendance: loadAttendance,
   };
 };
 

@@ -15,6 +15,13 @@ describe("permission resolver", () => {
     expect(hasModulePermission(permissionMap, "kudos", "view")).toBe(true);
   });
 
+  it("allows HR to delete users and employees", () => {
+    const permissionMap = createPermissionMap(getFallbackPermissionsForRole("hr"));
+
+    expect(hasModulePermission(permissionMap, "settings", "delete")).toBe(true);
+    expect(hasModulePermission(permissionMap, "employees", "delete")).toBe(true);
+  });
+
   it("sends managers to the dashboard as their default safe route", () => {
     const permissionMap = createPermissionMap(getFallbackPermissionsForRole("manager"));
 

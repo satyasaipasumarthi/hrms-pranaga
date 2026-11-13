@@ -47,13 +47,49 @@ body:has(.dashboard-light-override) #root {
   border-color: rgba(255, 138, 0, 0.2) !important;
 }
 
-.dashboard-light-override table tr:hover {
+.dashboard-light-override table tbody tr:not(.attendance-filter-row):hover {
   background-color: #FFF5ED !important;
 }
 
 .dashboard-light-override table th {
   color: #000000 !important;
   font-weight: 700 !important;
+}
+
+/* Attendance table filter row controls - prevent peach hover and lock light blue background */
+.dashboard-light-override table thead tr.attendance-filter-row,
+.dashboard-light-override table thead tr.attendance-filter-row:hover,
+.dashboard-light-override table thead tr.attendance-filter-row th,
+.dashboard-light-override table thead tr.attendance-filter-row:hover th {
+  background-color: #F8FAFD !important;
+  font-weight: 400 !important;
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+
+.dashboard-light-override table thead tr.attendance-filter-row input,
+.dashboard-light-override table thead tr.attendance-filter-row select {
+  border: 1px solid #CBD5E1 !important;
+  background-color: #FFFFFF !important;
+  color: #000000 !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+}
+
+.dashboard-light-override table thead tr.attendance-filter-row input:hover,
+.dashboard-light-override table thead tr.attendance-filter-row select:hover {
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override table thead tr.attendance-filter-row input:focus,
+.dashboard-light-override table thead tr.attendance-filter-row select:focus {
+  border-color: #FF4500 !important;
+  box-shadow: 0 0 0 1px #FF4500 !important;
+  background-color: #FFFFFF !important;
+}
+
+.dashboard-light-override table thead tr.attendance-filter-row button {
+  border-color: #CBD5E1 !important;
 }
 
 .dashboard-light-override table td {
@@ -82,14 +118,14 @@ body:has(.dashboard-light-override) #root {
 
 .dashboard-light-override .pagination-container button,
 .dashboard-light-override [class*="Pagination"] button {
-  border: 1px solid #FF8A00 !important;
-  color: #000000 !important;
-  background-color: #FFFFFF !important;
+  border: 1px solid #93C5FD !important;
+  color: #3B82F6 !important;
+  background-color: #DBEAFE !important;
 }
 
 .dashboard-light-override .pagination-container button:hover,
 .dashboard-light-override [class*="Pagination"] button:hover {
-  background-color: #FF4500 !important;
+  background-color: #3B82F6 !important;
   color: #FFFFFF !important;
 }
 
@@ -108,36 +144,36 @@ body:has(.dashboard-light-override) #root {
 }
 
 .attendance-pause {
-  background-color: #FFFFFF !important;
-  color: #000000 !important;
-  border: 1px solid #FF8A00 !important;
+  background-color: #DBEAFE !important;
+  color: #3B82F6 !important;
+  border: 1px solid #93C5FD !important;
 }
 
 .attendance-pause:hover:not(:disabled) {
-  background-color: #FFF5ED !important;
-  color: #000000 !important;
+  background-color: #BFDBFE !important;
+  color: #2563EB !important;
 }
 
 
 /* Apply Leave button */
 .attendance-apply-leave {
-  background-color: #FF4500 !important;
+  background-color: #3B82F6 !important;
   color: #FFFFFF !important;
 }
 
 .attendance-apply-leave:hover:not(:disabled) {
-  background-color: #FF8A00 !important;
+  background-color: #2563EB !important;
   color: #FFFFFF !important;
 }
 
 /* Leave Operations and View Leave buttons */
 .attendance-leave-operations {
-  background-color: #FFFFFF !important;
-  color: #000000 !important;
-  border: 1px solid #FF8A00 !important;
+  background-color: #DBEAFE !important;
+  color: #3B82F6 !important;
+  border: 1px solid #93C5FD !important;
 }
 
 .attendance-leave-operations:hover:not(:disabled) {
-  background-color: #FFF5ED !important;
-  color: #000000 !important;
+  background-color: #BFDBFE !important;
+  color: #2563EB !important;
 }
