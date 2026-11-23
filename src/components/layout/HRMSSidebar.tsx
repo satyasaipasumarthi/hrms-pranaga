@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { getAccessibleNavItems } from "@/lib/permissions";
+import { withTicketsNavItem } from "@/pages/tickets"; // [ticket-management]
 
 const HRMSSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -25,7 +26,7 @@ const HRMSSidebar = () => {
   // 2. Initialize dropdown state with isSettingsRoute
   const [isSettingsOpen, setIsSettingsOpen] = useState(isSettingsRoute);
 
-  const navItems = getAccessibleNavItems(permissions);
+  const navItems = withTicketsNavItem(getAccessibleNavItems(permissions)); // [ticket-management]
 
   const updateMarkerPosition = useCallback(() => {
     requestAnimationFrame(() => {

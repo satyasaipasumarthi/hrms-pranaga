@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.admin-update-user-creation]
 verify_jwt = false
+
+[functions.ticket-email-notify]
+verify_jwt = false

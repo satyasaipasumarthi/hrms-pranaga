@@ -82,6 +82,7 @@ const hydrateAccessContext = async (
 
 const attachAuthListener = (
   set: (partial: Partial<AuthState>) => void,
+  get: () => AuthState,
 ) => {
   if (authSubscription) {
     return;
@@ -104,6 +105,16 @@ const attachAuthListener = (
           event === "USER_UPDATED") &&
         session?.user
       ) {
+        // Returning to the tab makes Supabase re-emit SIGNED_IN / TOKEN_REFRESHED.
+        // For the user who is already loaded, do nothing: a global loader here
+        // unmounts the whole app and wipes any half-filled form.
+        if (
+          event !== "USER_UPDATED" &&
+          get().user?.id === session.user.id
+        ) {
+          return;
+        }
+
         set({ isLoading: true });
 
         try {
@@ -258,7 +269,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         );
       } finally {
         set({ isLoading: false });
-        attachAuthListener(set);
+        attachAuthListener(set, get);
         initializePromise = null;
       }
     })();

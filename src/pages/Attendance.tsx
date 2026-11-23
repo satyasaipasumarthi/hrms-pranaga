@@ -21,7 +21,7 @@ import {
   hasModulePermission,
 } from "@/lib/permissions";
 
-import { Download, LayoutGrid, RefreshCw, RotateCcw, Search, X } from "lucide-react";
+import { Download, RefreshCw, RotateCcw, Search, X } from "lucide-react";
 
 import "./Attendance.css";
 
@@ -112,10 +112,6 @@ const Attendance = () => {
 
   const [isDateFilterApplied, setIsDateFilterApplied] =
     useState(false);
-
-  // Attendance grid visibility
-  const [isAttendanceGridOpen, setIsAttendanceGridOpen] =
-    useState(true);
 
   // Check today's closed attendance record
   const todaysClosedRecord = useMemo(
@@ -494,7 +490,6 @@ const Attendance = () => {
           </div>
 
           {/* MAIN ATTENDANCE GRID */}
-          {isAttendanceGridOpen ? (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 1 }}
@@ -587,15 +582,6 @@ const Attendance = () => {
                         <Download className="h-4 w-4" />
                       </button>
 
-                      <button
-                        type="button"
-                        className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition-colors hover:bg-slate-50 hover:text-black"
-                        onClick={() => setIsAttendanceGridOpen(false)}
-                        title="Close attendance grid"
-                        aria-label="Close attendance grid"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
 
@@ -962,16 +948,6 @@ const Attendance = () => {
                 </div>
               )}
             </motion.div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsAttendanceGridOpen(true)}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-[#EAF4FF]"
-            >
-              <LayoutGrid className="h-4 w-4" />
-              Show attendance grid
-            </button>
-          )}
         </div>
       </PageWrapper>
     </div>

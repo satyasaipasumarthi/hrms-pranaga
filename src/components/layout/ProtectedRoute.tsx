@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { canAccessPath, hasModulePermission } from "@/lib/permissions";
+import { canAccessPath, canManageEmployees, hasModulePermission } from "@/lib/permissions";
 import { routeConfigByPath, type AppModule, type PermissionAction } from "@/lib/roles";
 
 interface ProtectedRouteProps {
@@ -27,9 +27,12 @@ const ProtectedRoute = ({ children, module, action = "view" }: ProtectedRoutePro
   }
 
   const routeModule = module ?? routeConfigByPath[location.pathname]?.module;
-  const isAllowed = routeModule
-    ? hasModulePermission(permissions, routeModule, action)
-    : canAccessPath(permissions, location.pathname);
+  const isAllowed =
+    routeModule === "employees" && action === "view"
+      ? canManageEmployees(permissions, user.role)
+      : routeModule
+        ? hasModulePermission(permissions, routeModule, action)
+        : canAccessPath(permissions, location.pathname);
 
   if (!isAllowed) {
     return <Navigate to={homePath} replace state={{ deniedPath: location.pathname }} />;

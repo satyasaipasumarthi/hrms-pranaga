@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAccessPath, canCreateKudos, createPermissionMap, getFallbackPermissionsForRole, getHomePath, hasModulePermission } from "@/lib/permissions";
+import { canAccessPath, canCreateKudos, canManageEmployees, createPermissionMap, getFallbackPermissionsForRole, getHomePath, hasModulePermission } from "@/lib/permissions";
 
 describe("permission resolver", () => {
   it("allows every employee to access the wall of fame route", () => {
@@ -20,6 +20,13 @@ describe("permission resolver", () => {
 
     expect(hasModulePermission(permissionMap, "settings", "delete")).toBe(true);
     expect(hasModulePermission(permissionMap, "employees", "delete")).toBe(true);
+  });
+
+  it("allows admins to view the personnel directory", () => {
+    const permissionMap = createPermissionMap(getFallbackPermissionsForRole("employee"));
+
+    expect(canManageEmployees(permissionMap, "admin")).toBe(true);
+    expect(canManageEmployees(permissionMap, "employee")).toBe(false);
   });
 
   it("sends managers to the dashboard as their default safe route", () => {

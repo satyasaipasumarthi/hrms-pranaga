@@ -5,13 +5,10 @@ import PaginationControls, {
   usePagination,
 } from "@/components/ui/PaginationControls";
 import { toast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/useAuth";
 import {
-  createTeam,
-  fetchTeams,
-  updateTeam,
+  createDepartment,
+  fetchDepartments,
   getReadableErrorMessage,
-  type TeamRecord,
 } from "@/lib/hrms-api";
 import { exportTeamMembersToExcel } from "@/lib/export-team-members";
 import {
@@ -24,13 +21,6 @@ import {
 } from "@/components/ui/dialog";
 import { Download, Eye, Pencil, Trash2, Plus, Search, X } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   deleteDepartmentEmployee,
   fetchEmployeesByDepartment,
   updateDepartmentEmployee,
@@ -39,48 +29,19 @@ import {
 import "./Team.css";
 
 const Team = () => {
-  const { user } = useAuth();
-
-  const [teams, setTeams] = useState<TeamRecord[]>([]);
   const [successMessage, setSuccessMessage] = useState("");
 
-  const [teamName, setTeamName] = useState("");
-  const [teamHead, setTeamHead] = useState("");
-  const [teamCategory, setTeamCategory] = useState<"" | TeamRecord["category"]>(
-    "",
-  );
-  const [teamSubCategory, setTeamSubCategory] = useState("");
-  const [customSubCategory, setCustomSubCategory] = useState("");
-  const [editingTeam, setEditingTeam] = useState<TeamRecord | null>(null);
+  const [departmentOptions, setDepartmentOptions] = useState<string[]>([]);
+  const [loadingDepartments, setLoadingDepartments] = useState(true);
+  const [departmentOptionsError, setDepartmentOptionsError] = useState("");
 
-  const [showAddTeamForm, setShowAddTeamForm] = useState(false);
+  const [departmentName, setDepartmentName] = useState("");
+  const [generatedDepartmentId, setGeneratedDepartmentId] = useState("");
+  const [createdDepartmentId, setCreatedDepartmentId] = useState("");
+  const [showAddDepartmentForm, setShowAddDepartmentForm] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [isSavingTeam, setIsSavingTeam] = useState(false);
-  const [formErrors, setFormErrors] = useState<{
-    teamName?: string;
-    teamHead?: string;
-    teamCategory?: string;
-    customSubCategory?: string;
-  }>({});
-
-  const finalSubCategory =
-    teamCategory !== "ItOperations"
-      ? ""
-      : teamSubCategory === "Other"
-        ? customSubCategory.trim()
-        : teamSubCategory;
-
-  const departmentOptions = [
-    "Executives",
-    "Operations",
-    "Sales & Marketing",
-    "HR",
-    "Web Development",
-    "Client Relations",
-    "Design & Media",
-    "Cyber Security",
-    "AI",
-  ];
+  const [isSavingDepartment, setIsSavingDepartment] = useState(false);
+  const [departmentFormError, setDepartmentFormError] = useState("");
 
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [departmentEmployees, setDepartmentEmployees] = useState<
@@ -264,90 +225,79 @@ const Team = () => {
     }
   };
 
-  const handleCreateTeam = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleCreateDepartment = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const errors: typeof formErrors = {};
-    if (!teamName.trim()) errors.teamName = "Please enter team name.";
-    if (!teamHead.trim()) errors.teamHead = "Please enter team head.";
-    if (!teamCategory) errors.teamCategory = "Please select category.";
-    if (
-      teamCategory === "ItOperations" &&
-      teamSubCategory === "Other" &&
-      !customSubCategory.trim()
-    ) {
-      errors.customSubCategory = "Please enter a custom subcategory.";
+    const name = departmentName.trim();
+    if (!name) {
+      setDepartmentFormError("Please enter a department name.");
+      return;
+    }
+    if (departmentOptions.some((department) => department.toLowerCase() === name.toLowerCase())) {
+      setDepartmentFormError("This department already exists.");
+      return;
     }
 
-    setFormErrors(errors);
-    if (Object.keys(errors).length > 0) return;
-
     try {
-      setIsSavingTeam(true);
-
-      const payload = {
-        teamname: teamName.trim(),
-        teamhead: teamHead.trim(),
-        category: teamCategory,
-        subCategory: finalSubCategory,
-      };
-
-      if (editingTeam) {
-        await updateTeam(editingTeam.id, {
-          team_name: teamName,
-          team_head_name: teamHead,
-          category: payload.category,
-          sub_category: payload.subCategory || null,
-        });
-      } else {
-        await createTeam(user, payload);
-      }
-
-      const data = await fetchTeams();
-      setTeams(data);
-      setSuccessMessage(
-        editingTeam ? "Team Updated Successfully" : "Team Created Successfully",
+      setIsSavingDepartment(true);
+      setDepartmentFormError("");
+      const created = await createDepartment(name);
+      setDepartmentOptions((departments) =>
+        [...departments, created.department_name].sort((a, b) => a.localeCompare(b)),
       );
-
-      setTeamName("");
-      setTeamHead("");
-      setTeamCategory("");
-      setTeamSubCategory("");
-      setCustomSubCategory("");
-      setEditingTeam(null);
-      setShowAddTeamForm(false);
+      setDepartmentOptionsError("");
+      setLoadingDepartments(false);
+      setCreatedDepartmentId(created.id);
+      setGeneratedDepartmentId(created.id);
+      setDepartmentName("");
+      setShowAddDepartmentForm(false);
+      setSuccessMessage("Department created successfully");
       setShowSuccessPopup(true);
     } catch (error) {
-      console.error(
-        editingTeam ? "Failed to update team:" : "Failed to create team:",
-        error,
-      );
+      console.error("Failed to create department:", error);
       toast({
-        title: editingTeam ? "Team update failed" : "Team creation failed",
+        title: "Department creation failed",
         description: getReadableErrorMessage(
           error,
-          editingTeam
-            ? "The team could not be updated."
-            : "The team could not be created.",
+          "The department could not be created.",
         ),
         variant: "destructive",
       });
     } finally {
-      setIsSavingTeam(false);
+      setIsSavingDepartment(false);
     }
   };
 
-  const handleCancelAddTeam = () => {
-    setTeamName("");
-    setTeamHead("");
-    setTeamCategory("");
-    setTeamSubCategory("");
-    setCustomSubCategory("");
-    setShowAddTeamForm(false);
+  const handleCancelAddDepartment = () => {
+    setDepartmentName("");
+    setGeneratedDepartmentId("");
+    setDepartmentFormError("");
+    setShowAddDepartmentForm(false);
   };
 
   useEffect(() => {
     document.title = "Teams";
+
+    let cancelled = false;
+    fetchDepartments()
+      .then((departments) => {
+        if (!cancelled) setDepartmentOptions(departments);
+      })
+      .catch((error) => {
+        console.error("Failed to load departments:", error);
+        if (!cancelled) {
+          setDepartmentOptionsError(
+            getReadableErrorMessage(error, "Departments could not be loaded."),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDepartments(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
@@ -366,13 +316,16 @@ const Team = () => {
         action={
           <button
             type="button"
-            onClick={() => setShowAddTeamForm(true)}
+            onClick={() => {
+              setDepartmentName("");
+              setGeneratedDepartmentId("");
+              setDepartmentFormError("");
+              setShowAddDepartmentForm(true);
+            }}
             className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#ff9100] bg-[#ff9100] px-5 font-heading text-xs font-medium tracking-wider uppercase text-white shadow-sm transition-colors hover:bg-[#ff9100]"
           >
             <Plus className="h-4 w-4" />
-            <span>
-              Add Team
-            </span>
+            <span>Add Department</span>
           </button>
         }
       >
@@ -385,6 +338,13 @@ const Team = () => {
               </h2>
              
             </div>
+            {loadingDepartments ? (
+              <p className="text-sm text-slate-500">Loading departments...</p>
+            ) : departmentOptionsError ? (
+              <p className="text-sm text-red-600">{departmentOptionsError}</p>
+            ) : departmentOptions.length === 0 ? (
+              <p className="text-sm text-slate-500">No departments are configured.</p>
+            ) : (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {departmentOptions.map((dept) => {
                 const isSelected = selectedDepartment === dept;
@@ -406,179 +366,76 @@ const Team = () => {
                 );
               })}
             </div>
+            )}
           </div>
 
-          {/* ADD / EDIT TEAM FORM */}
-          {showAddTeamForm && (
+          {/* ADD DEPARTMENT FORM */}
+          {showAddDepartmentForm && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               className="rounded-2xl border border-slate-300 bg-white p-6 shadow-sm space-y-4"
             >
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                <h2 className="text-base font-bold text-black">
-                  {editingTeam ? "Edit Team" : "Add New Team"}
-                </h2>
+                <h2 className="text-base font-bold text-black">Add Department</h2>
                 <button
                   type="button"
-                  onClick={handleCancelAddTeam}
+                  onClick={handleCancelAddDepartment}
                   className="text-slate-400 hover:text-black"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateTeam} className="space-y-4">
+              <form onSubmit={handleCreateDepartment} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-black uppercase tracking-wider">
-                      Team Name
+                      Department ID
                     </label>
                     <input
                       type="text"
-                      value={teamName}
-                      onChange={(e) => setTeamName(e.target.value)}
-                      placeholder="Enter team name"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                      value={generatedDepartmentId}
+                      placeholder="Generated automatically after saving"
+                      readOnly
+                      className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2 text-xs text-slate-500"
                     />
-                    {formErrors.teamName && (
-                      <p className="text-xs text-[#EF4444]">
-                        {formErrors.teamName}
-                      </p>
-                    )}
                   </div>
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] font-bold text-black uppercase tracking-wider">
-                      Team Head
+                      Department Name
                     </label>
                     <input
                       type="text"
-                      value={teamHead}
-                      onChange={(e) => setTeamHead(e.target.value)}
-                      placeholder="Enter team head"
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
-                    />
-                    {formErrors.teamHead && (
-                      <p className="text-xs text-[#EF4444]">
-                        {formErrors.teamHead}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-black uppercase tracking-wider">
-                      Category
-                    </label>
-                    <Select
-                      value={teamCategory || undefined}
-                      onValueChange={(value) => {
-                        setTeamCategory(value as TeamRecord["category"]);
-                        setTeamSubCategory("");
-                        setCustomSubCategory("");
+                      value={departmentName}
+                      onChange={(event) => {
+                        setDepartmentName(event.target.value);
+                        setDepartmentFormError("");
                       }}
-                    >
-                      <SelectTrigger className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
-                        <SelectValue placeholder="Select Category" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-white border border-slate-200 text-black">
-                        <SelectItem value="ItOperations">
-                          IT Operations
-                        </SelectItem>
-                        <SelectItem value="Hr">HR Operations</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {formErrors.teamCategory && (
-                      <p className="text-xs text-[#EF4444]">
-                        {formErrors.teamCategory}
-                      </p>
+                      placeholder="Enter department name"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
+                    />
+                    {departmentFormError && (
+                      <p className="text-xs text-[#EF4444]">{departmentFormError}</p>
                     )}
                   </div>
-
-                  {teamCategory === "ItOperations" && (
-                    <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-black uppercase tracking-wider">
-                        Sub Category
-                      </label>
-                      <Select
-                        value={teamSubCategory || undefined}
-                        onValueChange={(value) => {
-                          setTeamSubCategory(value);
-                          if (value !== "Other") {
-                            setCustomSubCategory("");
-                            setFormErrors((errors) => ({
-                              ...errors,
-                              customSubCategory: undefined,
-                            }));
-                          }
-                        }}
-                      >
-                        <SelectTrigger className="w-full rounded-xl border border-slate-300 bg-white text-xs text-black">
-                          <SelectValue placeholder="Select Sub Category" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-white border border-slate-200 text-black">
-                          <SelectItem value="Artificial Intelligence / Machine Learning">
-                            AI / ML
-                          </SelectItem>
-                          <SelectItem value="Cyber Security">
-                            Cyber Security
-                          </SelectItem>
-                          <SelectItem value="Web Development">
-                            Web Development
-                          </SelectItem>
-                          <SelectItem value="Other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                  {teamCategory === "ItOperations" &&
-                    teamSubCategory === "Other" && (
-                      <div className="space-y-1.5">
-                        <label
-                          htmlFor="custom-subcategory"
-                          className="text-[11px] font-bold text-black uppercase tracking-wider"
-                        >
-                          Custom Sub Category
-                        </label>
-                        <input
-                          id="custom-subcategory"
-                          type="text"
-                          value={customSubCategory}
-                          onChange={(event) => {
-                            setCustomSubCategory(event.target.value);
-                            if (event.target.value.trim()) {
-                              setFormErrors((errors) => ({
-                                ...errors,
-                                customSubCategory: undefined,
-                              }));
-                            }
-                          }}
-                          placeholder="Enter subcategory"
-                          className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs text-black focus:border-[#FF4500] focus:outline-none"
-                        />
-                        {formErrors.customSubCategory && (
-                          <p className="text-xs text-[#EF4444]">
-                            {formErrors.customSubCategory}
-                          </p>
-                        )}
-                      </div>
-                    )}
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={handleCancelAddTeam}
+                    onClick={handleCancelAddDepartment}
                     className="rounded-xl border border-[#ff9100] bg-[#ff9100] px-4 py-2 text-xs font-bold text-white hover:bg-[#ff9100]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSavingTeam}
+                    disabled={isSavingDepartment}
                     className="rounded-xl bg-[#ff9100] px-5 py-2 text-xs font-bold text-white hover:brightness-105 disabled:opacity-50"
                   >
-                    {editingTeam ? "Update Team" : "Submit Team"}
+                    {isSavingDepartment ? "Saving..." : "Submit Department"}
                   </button>
                 </div>
               </form>
@@ -906,7 +763,7 @@ const Team = () => {
           ) : null}
         </div>
 
-        {/* SUCCESS POPUP */}
+        {/* DEPARTMENT CREATED POPUP */}
         <Dialog open={showSuccessPopup} onOpenChange={setShowSuccessPopup}>
           <DialogContent className="max-w-sm rounded-2xl border border-slate-300 bg-white text-center text-black shadow-lg">
             <DialogHeader>
@@ -914,11 +771,17 @@ const Team = () => {
                 {successMessage}
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                {successMessage === "Team Updated Successfully"
-                  ? "The team details have been updated."
-                  : "The team has been created successfully."}
+                The department has been added successfully.
               </DialogDescription>
             </DialogHeader>
+            <div className="rounded-lg bg-slate-50 p-3 text-left">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Generated department ID
+              </p>
+              <p className="mt-1 break-all font-mono text-sm text-slate-900">
+                {createdDepartmentId}
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => setShowSuccessPopup(false)}

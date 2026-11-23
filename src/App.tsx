@@ -23,6 +23,7 @@ const Team = lazy(() => import("./pages/Team"));
 //const AccessControl = lazy(() => import("./pages/AccessControl"));
 //const TicketDashboard = lazy(() => import("./pages/TicketDashboard"));
 //const CreateTicket = lazy(() => import("./pages/CreateTicket"));
+const TicketsPage = lazy(() => import("./pages/tickets/TicketsPage")); // [ticket-management]
 const Settings = lazy(() => import("./pages/Settings"));
 const Login = lazy(() => import("./pages/Login"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -121,6 +122,7 @@ const App = () => {
                 <Route path="/team" element={<Navigate to="/teams" replace />} />
                 {/*<Route path="/wall-of-fame" element={<ProtectedRoute module="wall_of_fame"><WallOfFame /></ProtectedRoute>} />*/}
                {/* <Route path="/access-control" element={<ProtectedRoute module="access_control"><AccessControl /></ProtectedRoute>} />*/}
+                <Route path="/tickets" element={<TicketsPage />} /> {/* [ticket-management] */}
                 <Route path="/settings" element={<ProtectedRoute module="settings"><Settings /></ProtectedRoute>} />
               </Route>
               <Route path="*" element={<NotFound />} />

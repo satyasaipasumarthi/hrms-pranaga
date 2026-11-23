@@ -183,8 +183,8 @@ export const canAccessPath = (permissionMap: PermissionMap, path: string) => {
 
 export const canCreateKudos = (permissionMap: PermissionMap) => hasModulePermission(permissionMap, "kudos", "create");
 
-export const canManageEmployees = (permissionMap: PermissionMap) =>
-  hasModulePermission(permissionMap, "employees", "view");
+export const canManageEmployees = (permissionMap: PermissionMap, role?: AppRole) =>
+  role === "admin" || hasModulePermission(permissionMap, "employees", "view");
 
 export const canViewAllAttendance = (permissionMap: PermissionMap) =>
   hasMinimumDataScope(permissionMap, "attendance", "organization");

@@ -2711,11 +2711,11 @@ export const fetchUserCreationRecords = async (): Promise<UserCreationRecord[]> 
 };
 
 export const fetchDepartments = async (): Promise<string[]> => {
-  const response = await supabase.from("departments").select("name").order("name");
+  const response = await supabase.from("departments").select("department_name").order("department_name");
 
   if (!response.error) {
     return (response.data ?? [])
-      .map((row) => (row.name ? String(row.name) : null))
+      .map((row) => (row.department_name ? String(row.department_name) : null))
       .filter((name): name is string => Boolean(name));
   }
 
@@ -2735,6 +2735,25 @@ export const fetchDepartments = async (): Promise<string[]> => {
         .filter((name): name is string => Boolean(name)),
     ),
   ).sort((left, right) => left.localeCompare(right));
+};
+
+export const createDepartment = async (departmentName: string): Promise<{ id: string; department_name: string }> => {
+  const name = departmentName.trim();
+  if (!name) throw new Error("Department name is required.");
+
+  const { data, error } = await supabase
+    .from("departments")
+    .insert({ department_name: name })
+    .select("id, department_name")
+    .single();
+
+  if (error) throw error;
+  if (data?.id == null) throw new Error("Department was saved, but its generated ID was not returned.");
+
+  return {
+    id: String(data.id),
+    department_name: String(data.department_name),
+  };
 };
 
 export const fetchShifts = async (): Promise<string[]> => {

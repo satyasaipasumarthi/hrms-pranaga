@@ -1,6 +1,9 @@
 import type { AuthUser } from "@/lib/roles";
 import { parseAttendanceDateValue } from "@/lib/attendance";
 import type { PermissionMap } from "@/lib/permissions";
+import { supabase } from "@/lib/supabase";
+import { fetchNotifications as fetchTicketNotifications, markNotificationsRead as markTicketNotificationsRead } from "@/pages/tickets/api"; // [ticket-management]
+import type { TicketNotification } from "@/pages/tickets/types"; // [ticket-management]
 import {
   fetchAttendanceRecords,
   fetchLeaveRecords,
@@ -11,7 +14,7 @@ import {
   type LeaveRecord,
 } from "@/lib/hrms-api";
 
-export type NotificationKind = "check-in" | "check-out" | "leave" | "kudos";
+export type NotificationKind = "check-in" | "check-out" | "leave" | "kudos" | "ticket";
 
 export interface NotificationItem {
   id: string;
@@ -24,6 +27,10 @@ export interface NotificationItem {
   detail: string | null;
   /** Epoch milliseconds of the event, used for sorting and unread state. */
   timestamp: number;
+  /** Ticket notifications only: the ticket to open and the row to mark as read. */
+  ticketId?: string | null;
+  ticketNotificationId?: string;
+  ticketRead?: boolean;
 }
 
 export const MAX_NOTIFICATIONS = 30;
@@ -107,6 +114,84 @@ export const buildNotifications = (
     .slice(0, MAX_NOTIFICATIONS);
 };
 
+interface TeamAttendanceRow {
+  id: string;
+  user_id: string;
+  name: string;
+  check_in: string | null;
+  check_out: string | null;
+}
+
+const formatWorked = (from: number, to: number) => {
+  const minutes = Math.max(0, Math.round((to - from) / 60000));
+  const hours = Math.floor(minutes / 60);
+  return hours ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
+};
+
+/**
+ * Everyone's check-ins and check-outs (team_attendance_feed RPC, see supabase/team-attendance-feed.sql).
+ * Returns null when the function is not installed yet so the caller can fall back to the permission-scoped list.
+ */
+const fetchTeamAttendanceRows = async (): Promise<TeamAttendanceRow[] | null> => {
+  const { data, error } = await supabase.rpc("team_attendance_feed", { days_back: 7 });
+  if (error) {
+    console.warn("team_attendance_feed unavailable, showing only the attendance you have access to:", error.message);
+    return null;
+  }
+  return (data ?? []) as TeamAttendanceRow[];
+};
+
+const buildTeamAttendanceItems = (rows: TeamAttendanceRow[]): NotificationItem[] => {
+  const items: NotificationItem[] = [];
+  rows.forEach((row) => {
+    const checkedInAt = toTimestamp(row.check_in);
+    const checkedOutAt = toTimestamp(row.check_out);
+    if (checkedInAt !== null) {
+      items.push({ id: `check-in-${row.id}`, kind: "check-in", actor: row.name, message: "checked in", detail: null, timestamp: checkedInAt });
+    }
+    if (checkedOutAt !== null) {
+      items.push({
+        id: `check-out-${row.id}`,
+        kind: "check-out",
+        actor: row.name,
+        message: "checked out",
+        detail: checkedInAt !== null ? `Worked ${formatWorked(checkedInAt, checkedOutAt)}` : null,
+        timestamp: checkedOutAt,
+      });
+    }
+  });
+  return items;
+};
+
+// [ticket-management] Ticket alerts (assigned, mentioned, raised, deadline, escalation...) share this bell.
+const MAX_TICKET_NOTIFICATIONS = 20;
+
+const toTicketItems = (rows: TicketNotification[]): NotificationItem[] =>
+  rows.slice(0, MAX_TICKET_NOTIFICATIONS).flatMap((row) => {
+    const timestamp = toTimestamp(row.createdAt);
+    if (timestamp === null) return [];
+    return [
+      {
+        id: `ticket-${row.id}`,
+        kind: "ticket" as const,
+        actor: "",
+        message: row.title,
+        detail: row.body,
+        timestamp,
+        ticketId: row.ticketId,
+        ticketNotificationId: row.id,
+        ticketRead: Boolean(row.readAt),
+      },
+    ];
+  });
+
+/** Marks the ticket notifications in the list as read in the database (the unread dot uses timestamps). */
+export const markTicketNotificationsSeen = async (items: NotificationItem[]) => {
+  const ids = items.filter((item) => item.ticketNotificationId && !item.ticketRead).map((item) => item.ticketNotificationId!);
+  if (!ids.length) return;
+  await markTicketNotificationsRead(ids).catch((error) => console.error("Failed to mark ticket notifications read:", error));
+};
+
 /**
  * Loads everything the bell shows. Each source is fetched independently so one
  * failing (or forbidden) module does not hide the others.
@@ -115,10 +200,10 @@ export const fetchNotifications = async (
   user: AuthUser,
   permissions: PermissionMap,
 ): Promise<NotificationItem[]> => {
-  const [attendance, leaves, kudos] = await Promise.all([
-    fetchAttendanceRecords(user, permissions).catch((error) => {
-      console.error("Failed to load attendance notifications:", error);
-      return [] as AttendanceRecord[];
+  const [teamAttendance, leaves, kudos, ticketRows] = await Promise.all([
+    fetchTeamAttendanceRows().catch((error) => {
+      console.error("Failed to load team attendance:", error);
+      return null;
     }),
     fetchLeaveRecords(user, permissions).catch((error) => {
       console.error("Failed to load leave notifications:", error);
@@ -130,9 +215,25 @@ export const fetchNotifications = async (
         console.error("Failed to load kudos notifications:", error);
         return [] as KudosRecord[];
       }),
+    fetchTicketNotifications().catch((error) => {
+      console.error("Failed to load ticket notifications:", error);
+      return [] as TicketNotification[];
+    }), // [ticket-management]
   ]);
 
-  return buildNotifications(attendance, leaves, kudos);
+  // Everyone's check-ins when the feed is installed, otherwise only what this role may read.
+  const attendance = teamAttendance
+    ? ([] as AttendanceRecord[])
+    : await fetchAttendanceRecords(user, permissions).catch((error) => {
+        console.error("Failed to load attendance notifications:", error);
+        return [] as AttendanceRecord[];
+      });
+
+  const others = [...buildNotifications(attendance, leaves, kudos), ...(teamAttendance ? buildTeamAttendanceItems(teamAttendance) : [])]
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, MAX_NOTIFICATIONS);
+
+  return [...others, ...toTicketItems(ticketRows)].sort((a, b) => b.timestamp - a.timestamp);
 };
 
 /** Shows the actual clock time of the event, e.g. "Today, 10:42 AM". */

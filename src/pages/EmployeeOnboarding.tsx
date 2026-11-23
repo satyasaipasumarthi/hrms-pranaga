@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState, type ReactNode } from "react";
 import { createEmployeeOnboarding } from "@/lib/employee-onboarding-api";
+import { fetchDepartments } from "@/lib/hrms-api";
 import {
   ArrowLeft,
   BriefcaseBusiness,
@@ -48,23 +49,12 @@ const designations = [
   "Cybersecurity Intern",
   "Cyber Security",
   "Full Stack Developer",
-  "Web Development",
   "AI/ML",
   "Director",
   "Manager",
   "IT Operations",
 ];
-const departments = [
-  "Executives",
-  "Operations",
-  "Sales & Marketing",
-  "HR",
-  "Web Development",
-  "Client Relations",
-  "Design & Media",
-  "Cyber Security",
-  "AI",
-];
+
 const roleTypes = [
   "Full-Time",
   "Internship",
@@ -337,10 +327,37 @@ const defaultEmploymentDocs: EmploymentDocuments = {
 };
 
 export default function EmployeeOnboarding() {
+  const [departments, setDepartments] = useState<string[]>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState("");
+
   useEffect(() => {
     document.title = "Add Employee";
     return () => {
       document.title = "PraNaga HRMS";
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchDepartments()
+      .then((rows) => {
+        if (!cancelled) setDepartments(rows);
+      })
+      .catch((error) => {
+        console.error("Failed to load departments:", error);
+        if (!cancelled) {
+          setDepartmentsError(
+            error instanceof Error ? error.message : "Departments could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDepartmentsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -973,8 +990,20 @@ export default function EmployeeOnboarding() {
                 value={form.department}
                 onChange={update}
                 options={departments}
+                placeholder={
+                  departmentsLoading
+                    ? "Loading departments..."
+                    : departmentsError
+                      ? "Departments unavailable"
+                      : "Select Department"
+                }
                 required
               />
+              {departmentsError && (
+                <p className="text-sm text-red-600" role="alert">
+                  Departments could not be loaded: {departmentsError}
+                </p>
+              )}
             </Section>
           </div>
         )}

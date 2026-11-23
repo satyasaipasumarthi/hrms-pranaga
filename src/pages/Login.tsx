@@ -495,7 +495,7 @@ const Login = () => {
 
         {/* Footer */}
         <p className="mt-6 text-center text-xs font-normal tracking-wide text-[#858B96] sm:text-sm">
-          HRMS Employee Management System
+          PraNaga HRMS Employee Management System
         </p>
       </motion.div>
     </div>

@@ -90,8 +90,11 @@ Deno.serve(async (req: Request) => {
       .eq("id", callerData.user.id)
       .single();
 
-    if (roleError || callerProfile?.role !== "admin") {
-      return respond({ success: false, message: "Admin access required" }, 403);
+    if (
+      roleError ||
+      !["admin", "hr"].includes(String(callerProfile?.role).trim().toLowerCase())
+    ) {
+      return respond({ success: false, message: "Admin or HR access required" }, 403);
     }
 
     const body = await req.json();

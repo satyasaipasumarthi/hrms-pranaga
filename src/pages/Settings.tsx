@@ -39,6 +39,10 @@ import {
 } from "lucide-react";
 import "./Settings.css";
 
+  //keys
+  const CREATE_USER_DRAFT_KEY = "hrms_create_admin_user_draft_v1";
+  const CREATE_USER_OPEN_KEY = "hrms_create_admin_user_open_v1";
+
 const inputClass =
   "w-full bg-white border border-[#CBD5E1] rounded-lg px-3.5 py-2 text-xs text-black focus:outline-none focus:border-[#FF4500] focus:ring-1 focus:ring-[#FF4500]/30 transition-all";
 const labelClass =
@@ -65,11 +69,34 @@ const Settings = () => {
   const [isLoadingAdmins, setIsLoadingAdmins] = useState(true);
   const [departments, setDepartments] = useState<string[]>([]);
   const [shifts, setShifts] = useState<string[]>([]);
-  const [form, setForm] = useState(emptyForm);
+  //const [form, setForm] = useState(emptyForm);
+  const [form, setForm] = useState(() => {
+  try {
+    const saved = localStorage.getItem(CREATE_USER_DRAFT_KEY);
+    if (saved) {
+      return {
+        ...emptyForm,
+        ...JSON.parse(saved),
+        password: "",
+      };
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+
+  return emptyForm;
+});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  //const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(() => {
+  try {
+    return localStorage.getItem(CREATE_USER_OPEN_KEY) === "true";
+  } catch {
+    return false;
+  }
+});
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [adminToEdit, setAdminToEdit] = useState<UserCreationRecord | null>(
     null,
@@ -140,9 +167,49 @@ const Settings = () => {
     void loadAdminData();
   }, [loadAdminData]);
 
+   
   const resetForm = () => {
     setForm(emptyForm);
+    try {
+    localStorage.removeItem(CREATE_USER_DRAFT_KEY);
+  } catch {
+    // Ignore storage errors
+  }
   };
+  
+  const clearCreateDraftStorage = () => {
+  try {
+    localStorage.removeItem(CREATE_USER_DRAFT_KEY);
+    localStorage.removeItem(CREATE_USER_OPEN_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+};
+
+useEffect(() => {
+  try {
+    const { password, ...safeForm } = form;
+
+    localStorage.setItem(
+      CREATE_USER_DRAFT_KEY,
+      JSON.stringify(safeForm)
+    );
+  } catch {
+    // Ignore storage write errors
+  }
+}, [form]);
+
+useEffect(() => {
+  try {
+    localStorage.setItem(
+      CREATE_USER_OPEN_KEY,
+      String(isCreateOpen)
+    );
+  } catch {
+    // Ignore storage write errors
+  }
+}, [isCreateOpen]);
+
 
   const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -171,6 +238,7 @@ const Settings = () => {
 
       await loadAdminData();
       resetForm();
+      clearCreateDraftStorage();
       setIsCreateOpen(false);
       setIsSuccessOpen(true);
     } catch (error) {
@@ -312,7 +380,7 @@ const Settings = () => {
           <button
       type="button"
       onClick={() => {
-        setForm(emptyForm);
+        //setForm(emptyForm);
         setIsCreateOpen(true);
       }}
       className="settings-add-user-btn"

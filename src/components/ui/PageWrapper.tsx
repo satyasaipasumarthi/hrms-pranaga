@@ -17,7 +17,7 @@ interface PageWrapperProps {
 const PageWrapper = ({ children, title, label, action }: PageWrapperProps) => {
   useEffect(() => {
     const pageName = title || label;
-    document.title = pageName ? pageName : "HRMS";
+    document.title = pageName ? `${pageName} | PraNaga HRMS` : "PraNaga HRMS";
   }, [title, label]);
 
   return (

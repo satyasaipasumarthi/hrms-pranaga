@@ -1,0 +1,33 @@
+/* [ticket-management] Font for the board column headings (Open, In Progress, On Hold, Review, Closed). */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap');
+
+/* [ticket-management] Light theme for the ticket page and its dialogs/popovers.
+   Variables are set on <body> so portalled shadcn components (Dialog, Sheet, Select) inherit them. */
+body:has(.tickets-light) {
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;
+  --accent: 24 100% 95%;
+  --accent-foreground: 222 47% 11%;
+  --border: 214 32% 91%;
+  --input: 214 32% 85%;
+  background: #ffffff;
+  color-scheme: light;
+}
+
+.tickets-light {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+/* Board column headings: Plus Jakarta Sans (other choices: Inter, Roboto, Public Sans, Work Sans, Montserrat, Source Sans 3). */
+.kanban-column-title {
+  font-family: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}

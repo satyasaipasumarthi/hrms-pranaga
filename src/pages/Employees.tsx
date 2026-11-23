@@ -93,6 +93,7 @@ const initialFilters = {
 
 const Employees = () => {
   const { user, permissions } = useAuth();
+  const canViewEmployeeDirectory = canManageEmployees(permissions, user?.role);
   const [employees, setEmployees] = useState<OnboardingEmployeeRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isEmployeeGridOpen, setIsEmployeeGridOpen] = useState(true);
@@ -117,7 +118,7 @@ const Employees = () => {
   const canEditUsers = user?.role === "admin" || user?.role === "hr";
 
   const loadEmployees = useCallback(async () => {
-    if (!user || !canManageEmployees(permissions)) {
+    if (!user || !canViewEmployeeDirectory) {
       setEmployees([]);
       setIsLoading(false);
       return;
@@ -134,7 +135,7 @@ const Employees = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [permissions, user]);
+  }, [canViewEmployeeDirectory, user]);
 
   useEffect(() => {
     void loadEmployees();
@@ -260,7 +261,7 @@ const designationOptions = [
     }
   };
 
-  if (!user || !canManageEmployees(permissions)) {
+  if (!user || !canViewEmployeeDirectory) {
     return (
       <div
         className="dashboard-light-override min-h-screen w-full"
@@ -462,15 +463,6 @@ const designationOptions = [
                       className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-black disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Download className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEmployeeGridOpen(false)}
-                      title="Close employee grid"
-                      aria-label="Close employee grid"
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-black"
-                    >
-                      <X className="h-4 w-4" />
                     </button>
                   </>
                 )}

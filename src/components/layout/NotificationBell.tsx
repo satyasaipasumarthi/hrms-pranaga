@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, CalendarOff, LogIn, LogOut, Star, type LucideIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Bell, CalendarOff, LogIn, LogOut, Star, Ticket, type LucideIcon } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "@/hooks/use-toast";
+import { TICKETS_PATH } from "@/pages/tickets"; // [ticket-management]
+import { subscribeTicketNotifications } from "@/pages/tickets/liveNotifications"; // [ticket-management]
 import {
   fetchNotifications,
   formatNotificationTime,
+  markTicketNotificationsSeen,
   type NotificationItem,
   type NotificationKind,
 } from "@/lib/notifications";
@@ -14,6 +19,7 @@ const KIND_STYLES: Record<NotificationKind, { icon: LucideIcon; color: string; b
   "check-out": { icon: LogOut, color: "#E87532", background: "#FDE5D6" },
   leave: { icon: CalendarOff, color: "#3B82F6", background: "#DBEAFE" },
   kudos: { icon: Star, color: "#A779F5", background: "#EFE5FE" },
+  ticket: { icon: Ticket, color: "#E87532", background: "#FDE5D6" },
 };
 
 const lastSeenKey = (userId: string) => `hrms.notifications.lastSeen.${userId}`;
@@ -36,6 +42,7 @@ const writeLastSeen = (userId: string, timestamp: number) => {
 
 const NotificationBell = () => {
   const { user, permissions } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -65,6 +72,23 @@ const NotificationBell = () => {
     setLastSeen(userId ? readLastSeen(userId) : 0);
     void loadNotifications();
   }, [loadNotifications, userId]);
+
+  // Refresh every minute so teammates' check-ins show up without reopening the page.
+  useEffect(() => {
+    if (!userId) return;
+    const timer = setInterval(() => void loadNotifications(), 60_000);
+    return () => clearInterval(timer);
+  }, [loadNotifications, userId]);
+
+  // [ticket-management] New ticket alerts arrive instantly.
+  const email = user?.email;
+  useEffect(() => {
+    if (!email) return;
+    return subscribeTicketNotifications(email, (n) => {
+      toast({ title: n.title, description: n.body ?? undefined });
+      void loadNotifications();
+    });
+  }, [email, loadNotifications]);
 
   useEffect(() => {
     if (!open) return;
@@ -99,6 +123,7 @@ const NotificationBell = () => {
     setOpen(true);
 
     const latest = await loadNotifications();
+    void markTicketNotificationsSeen(latest); // [ticket-management]
     if (userId) {
       const seenAt = Math.max(Date.now(), latest[0]?.timestamp ?? 0);
       writeLastSeen(userId, seenAt);
@@ -162,10 +187,21 @@ const NotificationBell = () => {
                     const Icon = style.icon;
                     const isUnread = item.timestamp > unreadCutoff;
 
+                    const openTicket = item.ticketId
+                      ? () => {
+                          setOpen(false);
+                          navigate(`${TICKETS_PATH}?ticket=${item.ticketId}`);
+                        }
+                      : undefined;
+
                     return (
                       <li
                         key={item.id}
-                        className={`flex gap-3 px-4 py-3 ${isUnread ? "bg-[#FFF8F3]" : ""}`}
+                        onClick={openTicket}
+                        onKeyDown={openTicket ? (event) => event.key === "Enter" && openTicket() : undefined}
+                        tabIndex={openTicket ? 0 : undefined}
+                        role={openTicket ? "button" : undefined}
+                        className={`flex gap-3 px-4 py-3 ${isUnread ? "bg-[#FFF8F3]" : ""} ${openTicket ? "cursor-pointer hover:bg-[#FFF3EA]" : ""}`}
                       >
                         <span
                           className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
@@ -176,10 +212,13 @@ const NotificationBell = () => {
 
                         <div className="min-w-0 flex-1">
                           <p className="text-sm text-[#52647D]">
-                            <span className="font-semibold text-[#14264F]">
-                              {item.actor}
-                            </span>{" "}
-                            {item.message}
+                            {item.actor ? (
+                              <>
+                                <span className="font-semibold text-[#14264F]">{item.actor}</span> {item.message}
+                              </>
+                            ) : (
+                              <span className="font-semibold text-[#14264F]">{item.message}</span>
+                            )}
                           </p>
                           {item.detail && (
                             <p className="mt-0.5 truncate text-xs text-[#71829B]" title={item.detail}>
